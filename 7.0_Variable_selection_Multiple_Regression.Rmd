@@ -1,0 +1,279 @@
+---
+title: "Variable Selection in Multiple Regression"
+subtitle: "Forward, backward and mixed selection with `step()`"
+author: "Samuel Abugare"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    highlight: tango
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, message = FALSE, warning = FALSE,
+  fig.dpi = 300, fig.width = 10, fig.height = 5   # applies to every plot below
+)
+```
+
+## [1. Background: how the methods work]{.underline}
+
+- This notebook explains and demonstrates how variable selection is done in multiple regression. In multiple regression we are interested in the subset of predictors that has a real relationship with the response variable.
+
+- If we have *p* predictors, the number of possible models is 2^p^, which becomes huge as *p* grows. We therefore need an automated way to search for a good combination of predictors. That is where the variable selection methods come in: **forward, backward and mixed selection**.
+
+- All three methods repeat the same loop: **add or remove one variable at a time, judging by a criterion** such as the p-value, AIC or adjusted R². They differ only in where they start and whether they can change their mind.
+
+### [1.1 Forward selection]{.underline}
+
+- The forward method starts with a model without any predictors; that is the null model, or intercept-only model.
+
+- It first fits a simple linear regression for each of the *p* predictors and decides which simple model performs best. The decision is based on a criterion such as the p-value, AIC or adjusted R squared. Once the best simple model is settled, each of the remaining *p − 1* predictors is added to it in turn to form two-predictor models, and the best of these is chosen. That means one more predictor has entered the model. The process is repeated until adding a predictor no longer improves the current model.
+
+- A predictor that enters the model is never removed, even if it becomes unnecessary after later predictors are added.
+
+### [1.2 Backward selection]{.underline}
+
+- The backward method starts with the full model, which contains all *p* predictors.
+
+- It then removes the least useful predictor, that is, the one with the largest p-value (or the one whose removal lowers AIC the most). The model is refitted with the remaining *p − 1* predictors, and the least useful predictor is again identified and removed. The process is repeated until all the remaining predictors are useful, meaning that removing any of them would make the model worse.
+
+- A predictor that is removed never returns to the model. Backward selection can only be used when the number of observations is larger than the number of predictors (*n \> p*), because the full model must be fitted first.
+
+### [1.3 Mixed selection]{.underline}
+
+- The mixed method combines forward and backward selection. It starts with the null model and adds predictors one at a time, exactly as in forward selection, by adding the predictor that gives the best improvement.
+
+- After each addition, the model is checked, and any predictor that no longer contributes (for example, its p-value rises above the exit threshold) is removed. This happens because a predictor that looked useful early on can become redundant once other, correlated predictors enter the model. The process continues, adding and removing, until no predictor outside the model is worth adding and no predictor inside the model is worth removing.
+
+- When p-values are used, the threshold for entering the model should be stricter than the threshold for leaving it (for example, enter at p \< 0.05, remove at p \> 0.10). Otherwise a predictor could enter and leave repeatedly.
+
+### 1.4 Summary of the selection methods
+
+| Method | Start | Each step | Can undo a decision? |
+|-----------------|-----------------|----------------------|-----------------|
+| Forward | No variables | Add the best one | No |
+| Backward | All variables | Remove the worst one | No |
+| Mixed (stepwise) | No variables | Add the best, then check if any earlier ones should leave | Yes |
+
+> **Which criterion does `step()` use?** The descriptions above mention p-values, AIC and adjusted R². R's `step()` uses **AIC** (lower is better): at each step it adds or drops the variable that lowers AIC the most, and it stops when no move lowers AIC further. The logic is the same as the p-value version, but there are no entry/exit thresholds to set.
+
+## [2. Loading libraries and data]{.underline}
+
+```{r libraries}
+library(tidyverse)   # includes ggplot2, dplyr, readr
+library(gtsummary)   # tidy regression tables
+library(correlation) # correlation table
+
+# one plot style for the whole notebook
+theme_set(
+  theme_bw(base_size = 12, base_family = "serif") +
+    theme(axis.title = element_text(face = "bold"))
+)
+```
+
+```{r}
+# loading data:
+df <- read_csv("insurance.csv", show_col_types = FALSE)
+head(df, 5)
+dim(df)
+```
+
+The insurance data has `1338`rows. The response is `charges`; the candidate predictors are `age`, `sex`, `bmi`, `children`, `smoker` and `region`.
+
+**The focus here is on variable selection. The assumption is that you have explored your data adequately before running these steps, and the data was cleaned before writing this notebook. We only do a short exploration.**
+
+### 2.1 A quick look at the data
+
+Correlation between the numeric variables and the target:
+
+```{r correlation}
+df |>
+  select(where(is.numeric)) |>
+  correlation(method = "pearson") |>
+  filter(Parameter2 == "charges")
+```
+
+**Charges by smoker status:**
+
+```{r box-smoker}
+ggplot(df, aes(x = smoker, y = charges)) +
+  geom_boxplot(width = 0.2, staplewidth = 0.4, median.linewidth = 0.6, fill = "grey") +
+  labs(
+    title = "Distribution of Insurance Charges by Smoker Status",
+    x = "Smoker Status", y = "Charges ($)",
+    caption = "@SambugAnalytics"
+  )
+```
+
+**BMI, smoker status and charges:**
+
+```{r scatter-smoker}
+ggplot(df, aes(x = bmi, y = charges, color = smoker)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x) +
+  labs(
+    title = "Relationship between BMI and Insurance Charges by Smoker Status",
+    x = "BMI (kg/m^2)", y = "Charges ($)",
+    caption = "@SambugAnalytics"
+  )
+```
+
+**Charges by sex:**
+
+```{r box-sex}
+ggplot(df, aes(x = sex, y = charges)) +
+  geom_boxplot(width = 0.2, staplewidth = 0.4, median.linewidth = 0.6, fill = "grey") +
+  labs(
+    title = "Distribution of Insurance Charges by Sex",
+    x = "Sex", y = "Charges ($)",
+    caption = "@SambugAnalytics"
+  )
+```
+
+**BMI, sex and charges:**
+
+```{r scatter-sex}
+ggplot(df, aes(x = bmi, y = charges, color = sex)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x) +
+  labs(
+    title = "Relationship between BMI and Insurance Charges by Sex",
+    x = "BMI (kg/m^2)", y = "Charges ($)",
+    caption = "@SambugAnalytics"
+  )
+```
+
+**Charges by region:**
+
+```{r box-region}
+ggplot(df, aes(x = region, y = charges)) +
+  geom_boxplot(width = 0.2, staplewidth = 0.4, median.linewidth = 0.6, fill = "grey") +
+  labs(
+    title = "Distribution of Insurance Charges by Region",
+    x = "Region", y = "Charges ($)",
+    caption = "@SambugAnalytics"
+  )
+```
+
+**What we can observe:** from the correlation table and the plots, charges appear related to age, BMI, number of children and especially smoker status. Charges do not look very different between males and females, or across regions. This is only a visual impression; the selection methods below will test it
+
+## [3. Running the selection in R]{.underline}
+
+I start with the most explicit way of writing it, and then show shorter syntax for the same task.
+
+**Syntax of `step()`** (see `?step` for the full documentation):
+
+```         
+step(object, scope, scale = 0, direction = c("both", "backward", "forward"),
+     trace = 1, keep = NULL, steps = 1000, k = 2, ...)
+```
+
+- `object`: the starting model.
+- `scope`: the limits of the search, i.e. which variables may be added or removed.
+- `direction`: `"forward"`, `"backward"` or `"both"` (mixed).
+- `trace`: `1` prints every step, `0` is silent. Below I leave it on for the three main runs so you can watch each algorithm work.
+
+### 3.1 Forward selection: syntax 1
+
+```{r}
+# the null model: intercept only (the 1 means intercept)
+null <- lm(charges ~ 1, data = df)
+
+# the full model: every candidate predictor written out
+full <- lm(charges ~ age + sex + bmi + children + smoker + region, data = df)
+```
+
+```{r}
+# read the trace: each block shows the AIC of every possible addition
+forward_result <- step(
+  object = null,
+  scope = formula(full),
+  direction = "forward"
+)
+summary(forward_result)
+```
+
+### 3.2 Forward selection: syntax 2
+
+When there are many variables, typing them all is tedious. A dot after the tilde means "all other columns". The pipe `|>` passes the model on the left into the function on the right. Both `.` and `|>` are base R (the pipe needs R 4.1 or later), not tidyverse.
+
+The dot also picks up ID columns or anything else you do not want as a predictor, so drop those columns first.
+
+```{r}
+null_model <- lm(charges ~ 1, data = df)
+full_model <- lm(charges ~ ., data = df)    # same model as "full" above
+
+# trace = 0 because this run only demonstrates the shorter syntax
+forward_result2 <- null_model |>
+  step(scope = formula(full_model), direction = "forward", trace = 0)
+
+summary(forward_result2)
+```
+
+### 3.3 Backward selection
+
+Backward selection needs no null model and no `scope`. It starts from the full model and can only remove.
+
+```{r backward}
+backward_result <- full_model |>
+  step(direction = "backward")
+
+summary(backward_result)
+```
+
+### 3.4 Mixed selection
+
+In the mixed method, `scope` spans from the null model (`lower`) to the full model (`upper`), so we pass a list with both bounds. In the trace, `+` marks a variable being added and `-` one being removed.
+
+```{r}
+mixed_result <- null_model |>
+  step(
+    scope = list(lower = formula(null_model), upper = formula(full_model)),
+    direction = "both"   # both = forward and backward combined
+  )
+
+summary(mixed_result)
+```
+
+## 4. Comparing the results
+
+If the methods reached the same model, they will have the same number of parameters (`df`) and the same AIC:
+
+```{r}
+AIC(forward_result, forward_result2, backward_result, mixed_result)
+```
+
+The final model, shown with `gtsummary`:
+
+```{r final-model}
+tbl_regression(mixed_result) |>
+  bold_p()
+```
+
+```{r conclusion-values}
+kept    <- attr(terms(mixed_result), "term.labels")
+dropped <- setdiff(attr(terms(full), "term.labels"), kept)
+dropped_txt <- if (length(dropped) == 0) "none" else paste(dropped, collapse = ", ")
+# terms kept and terms removed in the variable selection process:
+kept
+dropped
+```
+
+## 5. Conclusion
+
+- **Result.** Starting from six candidate predictors, the selected model contains smoker, age, bmi, children and region. Variables dropped sex.
+
+- **The methods compare as follows.** Forward, backward and mixed selection differ in their starting point and in whether they can reverse a decision, but when the predictors carry a clear signal they usually arrive at the same model. Where they disagree, the mixed method is the safest default because it can correct early additions. Backward selection needs *n \> p*, and forward selection is the practical option when there are very many predictors.
+
+- **Categorical variables enter or leave as a whole.** `step()` works on terms, so a variable such as `region` (several dummy variables) is kept or dropped as one unit, not level by level.
+
+- **Limitations to keep in mind.**
+
+  - Selection is greedy and guided by AIC: it finds a *good* subset, not necessarily *the best* one.
+  - The selection and the final model use the same data, so the p-values and confidence intervals of the final model are optimistic. Treat them as a guide. For prediction, check performance on held-out data or with cross-validation.
+  - The model is additive and linear. The scatter plot suggests the BMI slope may differ by smoker status (an interaction), and the model residuals were not examined here, because the aim of this notebook is to show how selection works.
+  - A variable being selected means it helps prediction, not that it causes the outcome.

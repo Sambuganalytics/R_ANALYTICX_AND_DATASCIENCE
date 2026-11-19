@@ -1,0 +1,1194 @@
+---
+title: "Full_Tidyverse"
+author: "SumbugAnalytics"
+date: "2026-03-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## [Tidyverse:]{.underline}
+
+This markdown file explores the tidyverse library in R: The tidyverse library has these packages each for a specific purpose: tidyr, dplyr, stringr, lubridate, ggplot2, forcast, tibble,and purr. We shall explore all these packages in the tidyverse library: The single most syntatic operator in the tidyverse is the pipe operatior( \|\> or %\>%)
+
+## [Module 1: Tibbles and Data Import]{.underline}
+
+Note that in the creation of tibbles, the rows must be of equal length in all columns else, it throws an error. It only recycle when only one value is supplied in one o the columns. Recycling means it repeats the number for all the rest of the missing row.
+
+```{r}
+# loading libraries: for production, load only releveant libraries: for tutorial or demonstration, load all libraries
+library(tidyverse)
+```
+
+```{r}
+# let's create a dataframe with tibble
+students <- tibble(
+  name = c('Johnny','Stepehen','Diana','Tugas'),
+  socre = c(34,30,32,39.5),
+  grade = c("A","B+","B+","A")
+)
+
+# let's look at the tiblle
+students
+```
+
+```{r}
+# You can view the data structure with str() or with glimpse()
+glimpse(students)
+```
+
+```{r}
+# let's create another dataframe and convert it to a tibble with as_tibble
+machos <- data.frame(
+  id = 1:4,
+  names = c('Pablo','Pusher','Abiola','Cephas'),
+  years = c(6,3,3,7)
+)
+
+# let's check the class of machos
+class(machos)
+```
+
+```{r}
+# Now let's convert it to a tibble : see the class has changed
+machos <- as_tibble(machos)
+class(machos)
+```
+
+### [Reading Data with readr]{.underline}
+
+You can read data and allow readr to automatically detect columns type or you can specify with the col_type keyword and the col() function to indicate each column name and type:
+
+```{r}
+# use library(readr) if you only need tidyverese to read your tabular data
+data_csv <- read_csv("D:/PYTHON CODE AND DATA LIBRARY/Python Datasets/insurance.csv", show_col_types = FALSE)
+
+head(data_csv)
+```
+
+```{r}
+# how to change the variable types during data loading with readr:
+
+data_csv <- read_csv(
+  "D:/PYTHON CODE AND DATA LIBRARY/Python Datasets/insurance.csv",
+  col_types = cols(
+    age = col_integer(),
+    sex = col_factor(),
+    bmi = col_double(),
+    children = col_integer(),
+    smoker = col_factor(),
+    region = col_factor(),
+    charges = col_double()
+  )
+)
+head(data_csv,3)
+```
+
+```{r}
+# inspecting passsing problems:
+problems(data_csv)
+```
+
+### Writing to disk
+
+Writing to disk is basically saving the data frame to your local drive: you can use write_excel_csv() this writes csv excel friendly files. it is also very fast. To write excel file use library(openxlsx)
+
+```{r}
+# you can use write_excel_csv and it is very faster:
+write_csv(
+  data_csv,'new_csv.csv'
+)
+```
+
+## Module 3: Data Manipulation with dplyr
+
+### The Core Verbs
+
+### **select()** : select columns to subset
+
+```{r}
+head(mtcars)
+```
+
+```{r}
+# Let's select the milleage per gallon(pg) adn displacement(disp) columns
+mtcars |> 
+  select(mpg,disp) |> 
+  head()
+```
+
+**Range selection:**
+
+```{r}
+# range selection : select(colx:colz), let's select from qsec to am
+mtcars |> 
+  select(qsec:am) |> 
+  head()
+```
+
+**Exclusion selection**
+
+```{r}
+# Exclusion of columns: select all but mpg, cyl,disp, hp, drat
+mtcars |> 
+  select(-c(mpg,cyl,disp,hp,drat)) |> 
+  head(3)
+```
+
+**Selection helpers:**
+
+```{r}
+# selection helpers : start_with(), end_with(),contains()
+mtcars |> 
+  select(starts_with("cy")) |> 
+  head(3)
+```
+
+**Selection by data type :**
+
+NB - In selecting by datatype , where takes the is.numeric, is.character etc as argument and hence shouldn't be executed inside the where function. So you pass the function not the executed function
+
+```{r}
+# let select by data type :
+iris |> 
+  select(where(is.factor)) |> 
+  head(3)
+```
+
+**Renaming while selecting :**
+
+```{r}
+iris |> 
+  select(pl = Petal.Length,
+         pw = Petal.Width,
+         sl = Sepal.Length) |> 
+  head()
+```
+
+### filter() — Row Sub-setting;
+
+filter() retains rows satisfying logical conditions. Multiple conditions are implicitly combined with AND (&). Use \| for OR, ! for NOT.
+
+```{r}
+# for subsetting likes work witht the bikes data 
+library(openxlsx)
+bikes <- read.xlsx("D:/PYTHON CODE AND DATA LIBRARY/Python Datasets/Bikes_data.xlsx")
+print("Data loaded successfully")
+```
+
+```{r}
+# checking the first 3 rows
+head(bikes,3)
+```
+
+1.  Say we want all Married females whose income are above 40000 dollar
+
+```{r}
+bikes |> select(Marital_Status = Marital.Status,Gender,Income) |> 
+  filter(
+    Marital_Status == "Married" &
+      Gender == "Male" &
+      Income > 40000
+    ) |> 
+  head(3)
+```
+
+2.  filter for customers who bought bikes
+
+```{r}
+bikes |> filter(
+  Purchased.Bike == "Yes"
+) |> 
+  head(3)
+```
+
+3\. customers who own more than two cars and did not buy bikes
+
+```{r}
+bikes |> 
+  filter(
+    Cars >2 & Purchased.Bike == "No"
+  ) |> 
+  head(3)
+```
+
+**4.** Filter customers with **income between 40,000 and 80,000**
+
+```{r}
+bikes |> 
+  filter(
+    between(Income,40000,80000)
+  ) |> 
+  head(3)
+```
+
+4b. This logic will produce the same as the above: the only difference is the above is clean
+
+```{r}
+bikes |> 
+  filter(
+    Income >= 40000 & Income <=80000
+  ) |> 
+  head(3)
+```
+
+6.  Filter customers in the **North America or Pacific** region
+
+```{r}
+# there are two ways of doing this first is with the OR | operator
+bikes |> 
+  filter(
+    Region == "North America" | Region == "Pacific"
+  ) |> 
+  head(3)
+```
+
+```{r}
+# this could have also been done with the %in% infix operator : this is clean if you are looking for multiple OR condition with the same column
+bikes |> 
+  filter(
+    Region %in% c("North America","Pacific")
+  ) |> 
+  head(3)
+```
+
+You can also call function to produce values for filtering: like the mean function.
+
+7.Selecting age and income level based customers with age greater than average age
+
+```{r}
+# selecting customers whose age are greater than the average age
+bikes |> 
+  select(
+    Income, Age
+  ) |> 
+  filter(
+    Age > mean(Age,na.rm = TRUE)
+  ) |> 
+  head(3)
+```
+
+8\. Filter for all rows with NAs in income
+
+```{r}
+# There are no such missing data in Income
+bikes |> 
+  filter(
+    is.na(Income)
+  ) |> 
+  head(3)
+
+```
+
+**Filter rows where there is any NA in a column and when there are NAs in all columns:**
+
+```{r}
+# filters rows which has NAs in any of them columns
+bikes |> 
+  filter(
+    if_any(everything(),is.na) # checks all columns in a row for any NA
+  ) |> 
+  head()
+```
+
+**Filter rows where in all columns are NAs**
+
+```{r}
+# filters for rows which have NAs in all columns
+bikes |> 
+  filter(if_all(everything(),is.na)) |> 
+  head()
+```
+
+### [mutate() – Column Creation and Transformati]{.underline}on
+
+mutate() adds new columns or transforms existing ones. It evaluates expressions in sequence a new column created in one expression can be referenced in the next.
+
+```{r}
+# let's use the insurance dataset for this demonstration
+insurance <- read_csv("D:/PYTHON CODE AND DATA LIBRARY/Python Datasets/insurance.csv", show_col_types = FALSE)
+cat('Data loaded successfully')
+
+```
+
+```{r}
+# let's check the dataset
+insurance |> 
+  head(3)
+```
+
+```{r}
+# we use create a new column called standardized bmi which is bmi divided by the mean bmi
+
+insurance |> 
+  select(everything()) |> 
+  mutate(
+    std_bmi = (bmi/ mean(bmi,na.rm =TRUE))
+  ) |> 
+  relocate(std_bmi,.after = bmi) |> 
+  head(3)
+```
+
+```{r}
+# Let's do some more mutations: lets categorize our ages with mutate
+insurance |> 
+  mutate(
+    age_catecory = case_when(
+      age < 18 ~ "Under_age",
+      age >= 18 & age < 25 ~ 'Adult',
+      age >= 25 ~ "Older"
+    )
+  ) |> 
+  head(3)
+```
+
+**You could have used if_else or ifelse to do the same thing or even write a function to do that. You could have also used the cut function to do that. They are many options but i find case_when() neat and easy.**
+
+```{r}
+mtcars |> 
+  mutate(
+    efficiency = if_else(mpg>25,"Efficient","Standard")
+  ) |> 
+  relocate(efficiency,.after = mpg) |> 
+  head(3)
+```
+
+**You can use mutate to change the type of a column; say character to factor and so on**
+
+```{r}
+# let's change sex from character to factor in the insurance data:
+insurance |> 
+  mutate(
+    sex = as_factor(sex)
+  ) |> 
+  head(3)
+```
+
+**NB: Using the .keep argument; This argument decides whether or not to return the entire data frame or only the part that was used in the mutation calculations;**
+
+```{r}
+insurance |> 
+  mutate(
+    age_catecory = case_when(
+      age < 18 ~ "Under_age",
+      age >= 18 & age < 25 ~ 'Adult',
+      age >= 25 ~ "Older"
+    ), .keep = "used" # retains only variables used in the mutation
+  ) |> 
+  head(3)
+```
+
+**Applying a function across multiple columns using across in mutate** : **.names allow you to rename the scaled or mutated across columns**
+
+```{r}
+# say we want to scale (z scores) for all our numeric columns
+iris |> 
+  mutate(
+    across(where(is.numeric),scale, .names = "{.col}_scaled"),
+  ) |> 
+  head(3)
+```
+
+### [summarise() and group_by() – Aggregation]{.underline}
+
+The combination of group_by() and summarise() is the cornerstone of statistical aggregation in the tidyverse. Always ungroup() after grouped operations to prevent downstream bugs. The .drop argument determines whether to ignore groups combination or simply groups without data.
+
+```{r}
+# let's get some groupings and summaries from the insurance data
+insurance |> 
+  select(smoker, charges) |> 
+  group_by(smoker,.drop = FALSE) |> 
+  summarise(
+    n = n(),
+    Mean_charge = mean(charges,na.rm = TRUE),
+    Std_charge = sd(charges,na.rm = TRUE),
+    Median_charge = median(charges, na.rm = TRUE),
+    .groups = "drop"  #automatically ungroups : best practice
+  )
+```
+
+#### Multiple Grouping : Let's group by smoker and sex
+
+In multiple groupings you specify whether the first group should be used, last group or both, or drop both groups. we use the .groups argument in the summarise function.
+
+The .drop is used to tell R whether to show groups with empty values or omit them entirely. Used in the group_by function.
+
+```{r}
+insurance |> 
+  select(smoker,sex,charges) |> 
+  group_by(smoker,sex ,.drop = FALSE) |> 
+  summarise(
+    n = n(),
+    Mean_charge = mean(charges,na.rm = TRUE),
+    Std_charge = sd(charges,na.rm = TRUE),
+    Median_charge = median(charges, na.rm = TRUE),
+    .groups = 'drop'
+  )
+```
+
+#### Summarize with across:
+
+```{r}
+insurance |> 
+  summarize(
+    across(where(is.numeric),
+           list(mean = mean, sd = sd))
+    )
+
+```
+
+**NB: When to use summarise and reframe**
+
+| Feature | `summarise()` | `reframe()` |
+|----|----|----|
+| Returns per group | Single row | Multiple rows allowed |
+| Multiple values | Warning/Error | Handled naturally |
+| Output grouping | Controlled by `.groups` | Always returns ungrouped df |
+| Use case | Aggregations like mean, sum | quantile, range, complex summaries |
+
+```{r}
+# let's use reframe with quantiles 
+insurance |> 
+  reframe(
+    qs = quantile(
+      age, c(0.25,0.75)
+    ),
+    probes = c(0.25,0.75)
+  )
+
+  
+```
+
+### Arrange() and distinct()
+
+Arrange is used to sort data in some order
+
+```{r}
+# arranges the insurance variables by bmi
+insurance |> 
+  arrange(
+    desc(bmi) # arrange in descending order
+  ) |> 
+  head(3)
+```
+
+```{r}
+# multi sorting ; arranging
+insurance |> 
+  arrange(
+    age,desc(charges) # sorts in ascending by age and descending by charges
+  ) |> 
+  head(3)
+```
+
+**Distinct**
+
+For removing duplicates in data frame; .keep_all argument determines whether to return only the column you are checking the unique. just like .keep in mutate determines whether to return all columns or just the used columns
+
+```{r}
+# returns only distint rows
+insurance |> 
+  distinct() |> 
+  head()
+```
+
+```{r}
+# filtering distinct rows based on specific columns: filters only rows with unique regions; usually this is used for columns with unique numbers like id
+insurance |> 
+  distinct(
+    region, .keep_all = TRUE
+  ) 
+```
+
+### Joins — Relational Data Operations
+
+dplyr provides a complete set of SQL-style join operations. Understanding the semantics of each join type is essential for research data integration.
+
+```{r}
+# let's create a simple data frame to illustrate this 
+df_names <- tibble(
+  id = c(1:5),
+  names = c('Johnny','Stephen','Sammy','Dee','Moue')
+)
+
+# let's create another dataframe with scores 
+df_scores <- tibble(
+  id = c(1,3,5,6),
+  scores = c(54,26,30,75)
+)
+```
+
+#### Types of Joins:
+
+#### **Inner_join() ;**
+
+Returns a data frame where there is a match for the key column in both data frames
+
+```{r}
+# let's join df_names with df_scores on the common column id
+inner_joined <- df_names |> 
+  inner_join(df_scores, join_by(id))
+
+inner_joined
+```
+
+```{r}
+
+```
+
+#### **left_join() ;**
+
+Returns all matching rows in the two data frames on the key column and all rows in the left datframe. Same as saying you want all rows in the left data frame and all other matching rows in the right data frame .
+
+```{r}
+# so we want all the rows in df_names and all matching columns in df_scores
+left_join(
+  df_names, df_scores,by= "id"
+)
+```
+
+#### **right_join() ;**
+
+Right join returns all rows in the right data frame and all matching rows in the left data frame: The join_by() argument/function allow more cleaner functionality, it is like a value passed to the by parameter.
+
+```{r}
+# Returns all rows in df_scores and all matching rows in df_names
+df_names |> 
+  right_join(
+    df_scores,
+    by = join_by(id)
+  )
+```
+
+Using the keep parameter: The keep parameter determines which of the key columns on which the joining happened is returned
+
+```{r}
+df_names |> 
+  right_join(
+    df_scores,
+    by = join_by(id),
+    keep = TRUE # returns all the key columns from both data frames
+  )
+```
+
+#### full_join():
+
+Full join output a data frame where all rows from both matches and rows from both data frames are all returned. For all join types, the left key column is returned in R. Only in full_join where rows are borrowed from the right key where no key or match can be found in the left data frame.
+
+```{r}
+# let's see an example of a full_join()
+df_names |> 
+  full_join(
+    df_scores, by = join_by(id)
+  )
+```
+
+#### Exploring More Features of the Joins in Relational data integration
+
+```{r}
+# let's load some two csv fies from our disk
+employees <- read_csv("D:/R ANALYTICS/Practice Datasets/employees.csv", show_col_types = FALSE)
+departments<- read_csv("D:/R ANALYTICS/Practice Datasets/departments.csv",
+                       show_col_types = FALSE)
+cat('Data Succesfully loaded')
+```
+
+```{r}
+#let's look at the employee dataset
+head(employees,5)
+```
+
+```{r}
+# let's look at the columns in the employee data
+names(employees)
+```
+
+```{r}
+# let's check the department dataset
+departments |> 
+  head()
+```
+
+```{r}
+# let's create a table for the columns in the two dataframes
+colnames(departments)
+```
+
+**Scenario 1:**
+
+**Say we want to get the managers for each employee which is not in our employee data set and we want to show which columns belong to which data set: suffix added to show difference in duplicate column names**
+
+```{r}
+left_employee<- employees |> 
+  left_join(
+    departments, 
+    by = join_by(department_id),
+    suffix = c(".emp",".dept") 
+  )
+# let's check the data head of the newly merged data 
+left_employee |> 
+  head()
+```
+
+```{r}
+# let's look at the column names again:
+# see the department names are appended based on the tables they are coming from
+colnames(left_employee)
+```
+
+**Note :**
+
+Best practice is to slim data frames before joining. You select all columns of interest before joining the data frames. Let's take some examples.
+
+**scenario 2**
+
+Say we re interested in getting employees id, their names, their managers which is in the department data , their location
+
+```{r}
+# let's select employee_id and name form the employee data
+slim_employee <- employees |> 
+  select(department_id,name,salary)
+
+# Now let's select the manager,employee_id and location from the department dataset
+depart_slim <- departments |> 
+  select(
+    department_id,manager,location
+  )
+```
+
+```{r}
+# let's now do an inner join of the dataset
+slim_employee |> 
+  inner_join(
+    depart_slim, by = join_by(department_id)
+  ) |> 
+  head()
+```
+
+#### Joining on Different Columns:
+
+Joining on different columns is joining data frames on keys which holds the same values or matched values but different or slightly differenet column names. Example department_id in department table and dept_id in employee data set. These are different columns not multi-column joining. Multi-column joining is when you on multiple columns like on dept_id and names
+
+```{r}
+# let's modify the column name for the df_names data
+df_mod <- df_names |> 
+  mutate(
+    stud_id = id
+  ) |> select(
+    names,stud_id
+  )
+df_mod
+```
+
+**Method 1: using by = c("left_key" = "right_key")**
+
+```{r}
+# Let's now join that renamed id column which not extactly the same name as the id column in the df_scores dataframe
+
+inner_join(
+  df_mod , df_scores, by = c('stud_id'='id')
+)
+```
+
+**Method 2 : Passing join_by() to by : by = join_by(stud_id == id)**
+
+```{r}
+# let's do the same thing with a cleaner intuitive syntax
+df_mod |> 
+  inner_join(
+    df_scores, by = join_by(stud_id == id)
+  )
+```
+
+**Joining on multiple columns:**
+
+Let's try joining the employees and department data on department_id and department_name
+
+```{r}
+employees |> 
+  inner_join(
+    departments, 
+    by = join_by(department_id, department_name)
+  ) |> 
+  head()
+```
+
+```{r}
+# this can be done with only by this way:
+employees |> 
+  inner_join(
+    departments, 
+    by = c('department_id','department_name')
+  ) |> 
+  head()
+```
+
+#### [Window Functions and Ranked Operations]{.underline}
+
+Window functions compute values relative to the current observation within a group, without collapsing rows. They are essential for time-series, ranking, and running calculations
+
+##### Ranking Functions
+
+```{r}
+# Let's create a dataframe for this demonstration 
+scores <- tibble(
+  name = c('Johnny','Riry','Matt','Jake','Sammy'),
+  score = c(41,81,78,81,95),
+)
+# let's look at the data
+scores
+```
+
+Row_number : Ranks without ties, when there is a tie, the first number is arbitrary assigned the lowest number and the next tie have the next unique number. By default row_number ranks in ascending order that is smaller number ranked first. So to make high numbers rank first, you have to rearrange with descending, desc().
+
+**NB: Percent rank can be ascending or descending:**
+
+if ascending it is interpreted as what percentage of people did the number x, or student x_stud beat in score. In descending, it is interpreted as what percentage of people beat the number x or stud_x in score.
+
+```{r}
+# let's rank the scores 
+scores |> 
+  mutate(
+    row_rank = row_number(desc(score)), # no ties
+    score_main = min_rank(desc(score)), # ties are given same number and skips next
+    score_dense = dense_rank(desc(score)), # ties are given same number no skip
+    percen_rank = percent_rank(desc(score)) # rank
+  )
+```
+
+#### Lag and Lead
+
+-   **`lag()`** → pulls the **previous** row's value into the current row
+-   **`lead()`** → pulls the **next** row's value into the current row
+-   You can use default = 0 to modify the default NA value where no value exit after lead or lag
+
+```{r}
+# let's work on some lead and lag examples
+#-----------------------------------------------------
+df <- tibble(
+  month = c("Jan", "Feb", "Mar", "Apr", "May"),
+  sales = c(100, 120, 90, 150, 130)
+)
+
+df %>%
+  mutate(
+    prev_sales = lag(sales, n=1),     # what did we sell last month?
+    next_sales = lead(sales, n =1),    # what will we sell next month?
+    change = sales - lag(sales)  # calculating change
+  )
+```
+
+#### Cumulative Functions
+
+cumsum, cummean, commax etc
+
+```{r}
+# let's work on some cumulative functions
+#------------------------------------------------
+df |> mutate(
+  cumsum   = cumsum(sales),
+  cummean  = cummean(sales),
+  cummax   = cummax(sales)
+)
+
+```
+
+## [Module 4: Data Reshaping with tidyr]{.underline}
+
+Tidyr implements the principles of tidy data, enabling conversions between wide and long formats, handling of nested data, and management of missing values. These operations are often the most conceptually challenging part of a data pipeline.
+
+#### **Pivot_Longer : changing from wide to long data**
+
+```{r}
+# Each test is a column in this data:
+wide_data <- tibble(
+  subject = c("Maths", "English", "Science"),
+  T0      = c(10.2, 11.5, 9.8),
+  T1      = c(12.1, 13.0, 11.2),
+  T2      = c(14.5, 15.2, 13.8)
+)
+wide_data
+```
+
+```{r}
+# Let's make it longer
+longer_data <- wide_data |> 
+  pivot_longer(
+    cols = T0:T2,          # columns to make longer
+    names_to = 'Score_Type', # New name for all the column variables
+    values_to = 'Scores'     # New name for where the values will be
+  )
+head(longer_data,3)
+```
+
+**Let's work on more examples: Using the billboard data**
+
+```{r}
+# let's have a look at the billboard dataset
+head(billboard,3)
+```
+
+```{r}
+# let's take all the weeks into one variable called weeek:
+
+longer_bill <- billboard |> 
+  pivot_longer(
+    cols = starts_with('wk'),
+    names_to = 'Week',
+    names_prefix = "wk", #removes the wk prefixes in the pivoted column names
+    values_to = "Rank"
+  )
+head(longer_bill,4)
+```
+
+Now let's work with a complex one: the WHO data: In this data set each column contains more than one information. Let's have a look
+
+```{r}
+# let's have a look of the data set
+who |> 
+  head(4)
+```
+
+You can see a pattern in the column names new_sp_m014. Sp means smear positive, Sn: means smear negative etc. so we can split the columns into diagnosis,gender, age range: There is a regular expression used in such cases. We use the parenthesis to capture a group of pattern.
+
+```{r}
+who1 <- who |> 
+  pivot_longer(
+    cols = new_sp_m014:newrel_f65,
+    names_pattern = "new_?(.*)_(.)(.*)", #uses regular expr to find matched groups 
+    names_to = c("Diagnosis","Gender","Age_range"),
+    values_to = 'Count',
+    values_drop_na = TRUE # drops na
+  )
+head(who1,4)
+```
+
+Let's work a little on the Age_range
+
+```{r}
+# let's format the Age_range column
+who1 |> 
+  mutate(
+   Age_range = case_when(
+      Age_range == "014" ~ "0-14",
+      Age_range == "1524" ~ "15-24",
+      Age_range == "2534" ~ "25-34",
+      Age_range == "3544" ~ "35-44",
+      Age_range == "4554" ~ "45-54",
+      Age_range == "5564" ~ "55-64",
+      Age_range == "6574" ~ "65-74"
+    )
+  ) |> 
+  head(4)
+```
+
+```{r}
+multi <- tibble(
+  subject  = c("S1","S2"),
+  score_T0 = c(90, 85), score_T1 = c(92, 88),
+  perf_T0  = c("A","B"), perf_T1  = c("A","A")
+)
+multi
+
+```
+
+### The Simple Rule
+
+Sometimes all the columns to pivot do not hold the same kind of value or information: In that case for the names_to argument , use .value as part of the names. The position of the .value in names_to depends on the column pattern. for instance in the example below, the values are contained in the first part of the column name pattern and the second part actually tells time.
+
+NB: You can also use name_sep argument instead of name_pattern
+
+| Situation | What to use |
+|----|----|
+| All pivoted columns hold the **same kind of value** | `values_to = "some_name"` |
+| Pivoted columns hold **different kinds of values**, distinguished by part of the column name | `.value` in `names_to` |
+
+```{r}
+# let's work on this 
+
+multip<- multi |>
+  pivot_longer(
+    cols = !subject,
+    names_pattern = "(.*)_(.*)", # two patterns to capture
+    names_to = c(".value", "time")) #first part has column name to hold values 
+
+multip
+```
+
+### **Pivot_wider: Changing from long to wide**
+
+This is when we have a longer data frame and we want to make it wide
+
+```{r}
+multip |> 
+  pivot_wider( 
+    names_from = time,
+    values_from = c(score, perf)
+  )
+```
+
+#### Controlling Column Name Format with names_glue
+
+Instead of the default `score_T0` naming, you can customize with `names_glue`:
+
+```{r}
+# let's try to format the way the new columns look
+multip |> 
+  pivot_wider( 
+    names_from = time,
+    values_from = c(score, perf),
+    names_glue = "{time}_{.value}" # formats new column 
+  )
+```
+
+#### 4.3 Handling Missing Data :
+
+Handling NA is very important in Data analysis: You spend significant effort in fixing missing data so getting used to is an essential skills.
+
+**Filtering rows with any missing column**
+
+```{r}
+# filtering rows with any missing data in one or more columns
+billboard |> 
+  filter(
+    if_any(everything(),is.na)  # filter for rows with at least one NA
+  ) |> 
+  head()
+```
+
+**Filtering rows with all missing columns :**
+
+```{r}
+# filtering rows with all column values missing : There are no such columns
+billboard |> 
+  filter(
+    if_all(everything(), is.na)
+  )
+```
+
+**Dropping all NAs in the Data-frame:**
+
+```{r}
+# drops every column with at least one NA : There is no row left:
+# means every row in this data set had at least one missing value in a column
+billboard |> 
+  drop_na()
+```
+
+**Dropping NA by specific column:**
+
+In this case you want to drop some rows based on having missing data in a specific column.
+
+So we are going to work with the billboard data and drop columns based on missing values in wk1 and wk2
+
+```{r}
+# let's dropna values in week1 and week2 
+billboard |> 
+  drop_na(
+    c(wk1,wk2)
+  ) |> 
+  head()
+```
+
+**Filling Missing Values:**
+
+Let's use the Framingham data set to get this work done:
+
+```{r}
+# loading the data set
+framing <- read_csv(
+  "D:/MACHINE LEARNING/framingham_heart_study.csv",
+  show_col_types =  FALSE
+)
+cat("Data Loaded Succesfully")
+```
+
+```{r}
+# having a glimpse of the framingham dataset 
+head(framing)
+```
+
+```{r}
+# last work on the missing data in the glucose variable 
+# colSums(is.na(framing)
+```
+
+```{r}
+# let's calculate the mean and median glucose values 
+mean(framing$glucose, na.rm = TRUE)
+median(framing$glucose, na.rm = TRUE)
+```
+
+**Filling with replace** :
+
+```{r}
+# let's fill NA_s in the glucose values with replace_na function
+fram_re <- framing |> 
+  replace_na(
+    list(glucose = 78, BMI = 27)
+  ) 
+# let't check the missing glucose and bmi: all fixed
+sum(is.na(fram_re$glucose))
+sum(is.na(fram_re$BMI))
+```
+
+**Filling Missing with Forward or Backward fills:**
+
+So filling NA down: is filling na from top to buttom, where NAs are filled with previously observed value.\
+filling na up : Means filling NA from buttom up. You fill previous with the current one.
+
+```{r}
+# Let's work on some example:
+df <- tibble(
+  name = c('John','Smart','Jane','Betty','Slider','Anold','Steph','Matt'),
+  score = c(23,NA,45,23,NA,10,NA,NA)
+)
+utils:: head(df)
+```
+
+Now let's use a forward fill first: Filling from top to down: Smart will have a score of 23, Slide also 23 and so on;
+
+```{r}
+df |> 
+  fill(score, .direction = "down") |> 
+  head()
+```
+
+Now let's look at how fill up will be : Slider will have 10 and Smart will have 45
+
+```{r}
+# let's fill it up; from buttom up 
+df |> 
+  fill(
+    score, .direction = 'up'
+  ) |> 
+  head()
+```
+
+Let's assume we have a data set where all there are leading and trailing NAs: In that case fill down cannot\
+fill the leading NAs from top: So would NAs at the bottom most cannot be filled by fill up. So in such a case we use fill = downup or updown: This allows the fill function to fill in both direction, one direction at a time.
+
+```{r}
+# let's create a data frame to demonstrate this
+df2 <- tibble(
+  name = c('John','Smart','Jane','Betty','Slider','Anold','Steph','Matt'),
+  score = c(NA,NA,45,23,NA,10,NA,NA)
+)
+head(df2)
+
+```
+
+Let's fix it :
+
+```{r}
+df2 |> 
+  fill(
+    score, .direction = "updown"
+  ) |> 
+  head()
+```
+
+**Coalesce():\
+**Coalesce works like this : Give me the non-NA values in this column in the order i have provided them from left to right. Where you don't find a number in the first_column(NA), look into the next column to grab the corresponding value, there is no value or NA, look again in the next column. if you still don't find a value, you provide a final value it should always fall on.
+
+```{r}
+score_table <- tibble(
+  primary_score =c (5,NA,NA,8),
+  backup_score =c(NA,3,NA,9)
+)
+head(score_table)
+```
+
+**Let's create a final column with coalesce:**
+
+```{r}
+# Let's create a column called final_score
+score_table |> 
+  mutate(
+    final_score = coalesce(primary_score,backup_score,0)
+  ) |> 
+  head()
+```
+
+**Complete():\
+**Complete is actually used to fill missing rows not just values: For instance you have test score for students in differenct time points. but one particular student was missing for one time point. Let's show some example
+
+```{r}
+df3 <- tibble(
+  subject = c('Alice','Alice','Alice','Jane','Jane'),
+  time_point = c(1,2,3,1,2),
+  score = c(76,85,90,83,67)
+)
+head(df3)
+```
+
+Now say we want to complete Jane's data: We use complete
+
+```{r}
+df3 |> 
+  complete(subject,time_point,fill= list(value =0)) |> 
+  replace_na(list(score =0))
+```
+
+**4.4 Nested Data and List Columns:**\
+One of tidyr's most powerful and underused features is the ability to store complex objects (data frames, model outputs, plots) inside a tibble column. This enables fully vectorized modeling workflows. Let's look at these examples:
+
+```{r}
+# we want to group the data by species and then next it
+nested_iris<- iris |> 
+  group_by(
+    Species
+  ) |> 
+  nest()
+```
+
+```{r}
+# let's show the nested data; Each group has its data stored under data
+nested_iris
+```
+
+Now Each Species has it separate data, all coulumns stored under the data column:\
+We are going to add a column of models for each group: And after everything we will start unnesting :
+
+```{r}
+# Let' add a linear model for each group: let's call this data models
+models <- nested_iris |> 
+  mutate(
+    model = map(data,~lm(Sepal.Length~Sepal.Width, data = .x)),
+    tidy = map(model,broom::tidy),
+    glance = map(model,broom::glance),
+    params = map(model,stats:: coef)
+  )
+models
+```
+
+**Let's extract the model results :**
+
+```{r}
+models |> 
+  select(Species,tidy) |> 
+  unnest(tidy)
+```
+
+**Unnest_wider():\
+**Unnest wider extracts everything from the nested list
+
+```{r}
+#Extracts everything in the params list:
+models |> 
+  select(Species,params) |> 
+  unnest_wider(params)
+```
+
+**Hoist():\
+**Hoist is used when you want to extract some part of the nested list and not everything like unnest and unnest_wider do:
+
+```{r}
+# let's extract only intercept
+
+models |> select(Species,params) |> 
+  hoist(params, intercept = "(Intercept)") |> 
+  select(!params) #this is added to only show species and the extracted intercept
+```

@@ -1,0 +1,168 @@
+---
+title: "ggplot_functions"
+author: "SumbugAnalytics"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### This is my notebook of custom functions for plotting {style="color:pink;"}
+
+```{r}
+# importing relevant libraries
+library(ggplot2)
+library(tidyverse)
+library(stringr)
+```
+
+1.   **Grouped Bar chart function**
+
+```{r}
+# Grouped bar chart function
+grouped_bar <- function(df = NULL, x_var = NULL,y_var = NULL, category =NULL){
+  figx <- ggplot(
+    data = df,
+    aes( x = .data[[x_var]],y = .data[[y_var]], fill = .data[[category]])
+    )+
+    geom_col(
+      position = "dodge",
+      width = 0.5
+    )+
+    geom_text(
+      aes(label = paste0(.data[[y_var]],"%")),
+      position = position_dodge(width = 0.5),
+      vjust= -0.4
+    )+
+    labs(
+      title = paste("Distribution of",x_var),
+      subtitle = paste('Distribution stratified by',category),
+      x = tools::toTitleCase(x_var),
+      y = tools::toTitleCase(y_var),
+      caption = "Source: SambugAnalytics"
+    )+
+    theme_bw()+
+     theme(
+    text = element_text(family = "serif",size =13),# global text style
+    plot.title = element_text(face = "bold",hjust = 0), 
+    axis.title.x = element_text(size =11, face = "bold"),# styles only x axis title
+    axis.title.y = element_text(face = "bold",size = 11),
+    axis.text = element_text(face = "bold")
+  )
+  return (figx)
+}
+```
+
+2.  **Simple Bar chart Function using tidy eval :**.
+
+```{r}
+# let's write another simple function for barchart
+simple_bar <- function(df = NULL, x_var = NULL){
+  figsimp <- ggplot(
+    data = df,
+    aes(x = {{x_var}})
+  )+ geom_bar(
+    fill = "lightblue",
+    width = 0.5
+  )+
+    geom_text(
+      stat = "count",
+      aes(label = after_stat(count)), # this is the internal count geom_bar does
+      vjust = -0.4
+    )+
+    labs(
+      title = paste("Distribution of participants by",deparse(substitute(x_var))),
+      x = tools::toTitleCase(deparse(substitute(x_var))),
+      y = "Count",
+      caption = "Source : SambugAnalytics"
+    )+
+    theme_bw()+
+      theme(
+    text = element_text(family = "serif",size =13),# global text style
+    plot.title = element_text(face = "bold",hjust = 0), 
+    axis.title.x = element_text(size =11, face = "bold"),# styles only x axis title
+    axis.title.y = element_text(face = "bold",size = 11),
+    axis.text = element_text(face = "bold")
+  )
+  return (figsimp)
+    
+}
+```
+
+3.  **Box plot Function**
+
+```{r}
+# function for creating basic boxplot
+simple_boxplot <- function(df = NULL, x_var = NULL, y_var = NULL, comp =NULL, anot= NULL){
+ figbox<- ggplot(
+    data = df,
+    aes( x = {{xvar}}, y = {{y_var}})
+  )+
+    geom_boxplot(
+      fill = "white",
+      staplewidth = 0.5,
+      median.linewidth = 1,
+       alpha =1,
+    color = 'black',
+    linewidth= 1,
+    coef = 1.5,
+    outlier.color = 'black',
+    outlier.size = 1.5
+    )+
+    geom_signif(
+      comparisons = comp,
+      annotations = anot,
+      y_position = max({{y_var}})+10 # needs modification
+      )+
+   labs(
+    title = paste("comparison of",deparse(substitute(x_var)),"across",deparse(substitute(y_var))),
+    caption = "Source:SambugAnalytics",
+    x = deparse(substitue(x_var)),
+    y = deparse(substitue(y_var))
+  )
+   
+    return (figbox)
+}
+```
+
+4.  **Histogram plot function**
+
+```{r}
+hist_plot <- function(df, x_var, fill_var, plt_title){
+
+  x_var_name <- deparse(substitute(x_var))
+  fill_var_name <- deparse(substitute(fill_var))
+
+  histfig <- ggplot(
+    data = df,
+    aes(x = .data[[x_var_name]])
+  ) +
+    geom_histogram(
+      aes(fill = factor(.data[[fill_var_name]])),
+      binwidth = (max(df[[x_var_name]], na.rm = TRUE) - 
+                  min(df[[x_var_name]], na.rm = TRUE)) / 30,
+      color = "white"
+    ) +
+    scale_x_continuous(
+      breaks = seq(
+        min(df[[x_var_name]], na.rm = TRUE),
+        max(df[[x_var_name]], na.rm = TRUE),
+        by = (max(df[[x_var_name]], na.rm = TRUE) - 
+              min(df[[x_var_name]], na.rm = TRUE)) / 30
+      )
+    ) +
+    labs(
+      title = plt_title,
+      caption = "Source: SambugAnalytics"
+    ) +
+    theme_bw() +
+    theme(
+      text = element_text(family = "serif", size = 13),
+      plot.title = element_text(face = "bold")
+    )
+
+  return(histfig)
+}
+```

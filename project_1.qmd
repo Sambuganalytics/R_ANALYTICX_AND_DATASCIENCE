@@ -1,0 +1,454 @@
+---
+Author: 'Samuel Abugare'
+title: "Diabetes Dataset"
+format: 
+  html:
+    theme: litera
+    toc: true
+    toc-depth: 3
+    toc-location: right
+    code-fold: true
+    code-tools: true
+    page-layout: full
+    df-print: paged
+    fig-align: center
+    highlight-style: github
+editor: visual
+---
+
+## [Project 8 : Pima Diabetes Prediction]{.underline} {style="color:steelblue;"}
+
+Project description:
+
+### Loading relevant libraries
+
+```{r}
+# loading libraries
+library(tidyverse)
+library(ggplot2)
+```
+
+### Loading Pima dataset
+
+```{r}
+pima <- read_csv("D:/R ANALYTICS/Practice Datasets/diabetes.csv",
+                 show_col_types = FALSE)
+cat('Data loaded successfully')
+```
+
+**Inspecting data structure and variable data types:**
+
+```{r}
+pima |> head()
+```
+
+```{r}
+# Checking dataset dimension and missing values: 768 rows and 9 columns
+dim(pima)
+```
+
+```{r}
+# checking the data types of the columns in the pima dataset
+pima |> map_chr(typeof)
+```
+
+### **Quantifying missing data to inform preprocessing decisions:**
+
+```{r}
+# checking missing data :  
+mis_count <- colSums(is.na(pima))
+# let's convert it to a nice table
+mis_count |>  enframe(
+  name = "variable",
+  value = "count"
+)
+```
+
+**Checking for biologically impossible values and handling them:**
+
+```{r}
+# using the map function to check for minimum values in columns
+pima |> 
+  map_dbl(min)
+```
+
+**You could see there are zero glucose values,blood pressure, insulin and bmi: these are biologically impossible and must be treated as missing data.**
+
+```{r}
+# replaces NA where biological impossible values exist:
+impo_bio_cols <- c('SkinThickness','Glucose','Insulin','BMI','BloodPressure')
+pima[impo_bio_cols] <- map(pima[impo_bio_cols],\(x) ifelse(x==0,NA,x))
+```
+
+```{r}
+# let's check if the minimimum values ares till zero
+pima |> 
+  map_dbl(\(x) min(x,na.rm = TRUE))
+```
+
+**Now that we have no zeros, let's check for missing values:**
+
+```{r}
+colSums(is.na(pima))
+```
+
+```{r}
+# visualizing missingness
+library(naniar)
+```
+
+```{r fig.dpi=300, fig.height=7, fig.width=14}
+
+pima |>
+  rename(
+    "Pregnancies"        = Pregnancies,
+    "Glucose (mg/dL)"    = Glucose,
+    "Blood Pressure"     = BloodPressure,
+    "Skin Thickness"     = SkinThickness,
+    "Insulin (μU/mL)"    = Insulin,
+    "BMI (kg/m²)"        = BMI,
+    "Pedigree Function"  = DiabetesPedigreeFunction,
+    "Age (years)"        = Age,
+    "Outcome"            = Outcome
+  ) |>
+  vis_miss() +
+  labs(
+    title   = "Missingness Pattern — Pima Diabetes Dataset",
+    caption = "Source: @SambugAnalytics"
+  ) +
+  theme(
+    text = element_text(family = "serif", size = 13),
+    plot.title = element_text(face = "bold"),
+    axis.text.x  = element_text(angle = 45, hjust = 1, size = 11),
+    plot.caption  = element_text(face = "bold")
+  )
+```
+
+```{r}
+# Missingness by diabetic status
+pima |>
+  group_by(Outcome) |>
+  summarise(across(impo_bio_cols, ~ sum(is.na(.x))))
+```
+
+```{r}
+# checking if pattern exist in missing data :
+mcar_test(pima)
+```
+
+**Median imputation stratified by outcome**
+
+Little's MCAR test was statistically significant (χ² = 166.97, df = 69, p \< 0.001), indicating that missingness is not completely at random. Stratified median imputation by outcome group was applied as a clinically defensible approach, preserving biological differences between diabetic and non-diabetic patients.
+
+```{r}
+pima <- pima |>
+  group_by(Outcome) |>
+  mutate(across(all_of(impo_bio_cols), ~ ifelse(is.na(.x), median(.x, na.rm = TRUE), .x))) |>
+  ungroup()
+```
+
+```{r}
+# checking if there is any NAs 
+colSums(is.na(pima))
+```
+
+**Class distribution :**
+
+```{r}
+#distribution of outcome
+table(pima$Outcome) |> 
+  enframe(
+    name = "Outcome",
+    value = "Count"
+  ) |> 
+  mutate(percentage = (Count/sum(Count))*100)
+```
+
+### **Exploratory Data analysis:**
+
+**Reshaping the data frame to plot distribution of all variables at once**
+
+```{r}
+# colapsing all except Outcome columns to variable and values to value columns: 
+pima_long <- pima |> 
+  pivot_longer(
+    cols = !Outcome,
+    names_to = 'variable',
+    values_to = "value"
+  )
+head(pima_long)
+```
+
+**Examining distribution of numeric variables** :histograms and boxplots
+
+```{r fig.dpi=300, fig.height=7, fig.width=14}
+
+# Clinical threshold lines for relevant variables
+thresholds <- tibble(
+  variable = c("Glucose", "BloodPressure", "BMI"),
+  xintercept = c(200, 90, 30),
+  label = c("Diabetic", "Hypertension", "Obese")
+)
+
+ggplot(pima_long, aes(x = value, fill = factor(Outcome))) +
+  geom_histogram(bins = 30, color = "white", alpha = 0.85) +
+  geom_vline(
+    data = thresholds,
+    aes(xintercept = xintercept),
+    linetype = "dashed", colour = "#c0392b", linewidth = 0.7
+  ) +
+  geom_text(
+    data = thresholds,
+    aes(x = xintercept, y = Inf, label = label),
+    hjust = -0.1, vjust = 1.5,
+    size = 3, colour = "#c0392b", inherit.aes = FALSE
+  ) +
+  facet_wrap(~ variable, scales = "free") +
+  scale_fill_manual(
+    values = c("0" = "#2471a3", "1" = "#c0392b"),
+    labels = c("0" = "Non-diabetic", "1" = "Diabetic")
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+  theme_bw() +
+  labs(
+    title    = "Distribution of Clinical Variables Stratified by Diabetes Status",
+    subtitle = "Dashed lines indicate WHO clinical decision thresholds",
+    x        = "Value",
+    y        = "Count",
+    fill     = "Diagnosis",
+    caption  = "Source: @SambugAnalytics"
+  ) +
+  theme(
+    text = element_text(family = "serif", size = 13),
+    plot.title = element_text(face = "bold"),
+    axis.title = element_text(face = "bold"),
+    plot.subtitle = element_text(colour = "#555555", size = 11),
+    strip.text = element_text(face = "bold"),
+    strip.background = element_rect(fill = "#d6eaf8"),
+    legend.position  = "bottom",
+    panel.grid.minor = element_blank(),
+    plot.caption.position  = "plot",
+    plot.caption = element_text(face = "bold")
+  )
+```
+
+```{r fig.dpi=300, fig.height=7,fig.width=14}
+# let's visualize the distribution of variables by Outcome
+
+ggplot(pima_long, 
+       aes(x = factor(Outcome), y = value)
+       ) +
+  geom_boxplot(
+    aes(fill = factor(Outcome)),
+    width = 0.2,
+    staplewidth = 1
+    ) +
+  facet_wrap(~ variable, scales = "free")+
+  scale_fill_manual(
+    values = c("0" = "#2471a3", "1" = "#c0392b"),
+    labels = c("0" = "Non-diabetic", "1" = "Diabetic"))+
+  theme_bw() +
+  labs(
+    x = "Diagnosis",
+    title = "Distribution of All Numerical Variables",
+    subtitle = "Variables stratified by disease Outcome",
+    caption = "Source:@SambugAnalytics",
+    fill = 'Diagnois'
+  )+
+  theme(
+    text = element_text(family = "serif", size = 13),
+    axis.title = element_text(face = 'bold'),
+    plot.title = element_text(face = "bold"),
+    plot.caption.position = 'plot',
+    plot.caption = element_text(face="bold"),
+    strip.text = element_text(face = "bold")
+  )
+```
+
+### Let's do some correlations:
+
+```{r}
+# library for correlation analysis
+library(correlation)
+library(corrplot)
+```
+
+```{r fig.dpi=300, fig.height=7, fig.width=10}
+
+library(reshape2)
+
+# compute correlation matrix
+cor_matrix <- pima |>
+  cor(method = "spearman") |>
+  round(2)
+
+# convert to long format for ggplot
+cor_long <- cor_matrix |>
+  melt()
+
+ggplot(cor_long, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  geom_text(aes(label = value), size = 3.5, family = "serif") +
+  scale_fill_gradient2(
+    low      = "#2471a3",
+    mid      = "white",
+    high     = "#c0392b",
+    midpoint = 0,
+    limits   = c(-1, 1),
+    name     = "Spearman\nCorrelation"
+  ) +
+  labs(
+    title    = "Spearman Correlation Heatmap — Pima Diabetes Dataset",
+    subtitle = "Red = positive correlation | Blue = negative correlation",
+    x        = NULL,
+    y        = NULL,
+    caption  = "Source: @SambugAnalytics"
+  ) +
+  theme_minimal() +
+  theme(
+    text           = element_text(family = "serif", size = 13),
+    plot.title     = element_text(face = "bold"),
+    plot.subtitle  = element_text(colour = "#555555", size = 11),
+    axis.text.x    = element_text(angle = 45, hjust = 1, size = 11),
+    axis.text.y    = element_text(size = 11),
+    legend.position = "right",
+    panel.grid     = element_blank(),
+    plot.caption   = element_text(face = "bold")
+  )
+```
+
+Glucose and Insulin showed the strongest correlations with diabetic outcome (ρ = 0.49 and 0.56 respectively), consistent with their central role in T2DM pathophysiology. BMI and SkinThickness were highly inter-correlated (ρ = 0.59), suggesting multicollinearity that may affect coefficient interpretation in regression models. The strong Age-Pregnancies correlation (ρ = 0.61) reflects demographic patterning rather than biological causation.
+
+**Clinical Threshold Flagging** : **code for flagging data**
+
+```{r}
+pima_flagged <- pima |>
+  mutate(
+    # Glucose risk tier (WHO OGTT criteria)
+    glucose_category = case_when(
+      Glucose < 140 ~ "Normal",
+      Glucose >= 140 & Glucose < 200 ~ "Prediabetic",
+      Glucose >= 200 ~ "Diabetic"
+    ),
+    
+    # BMI classification (WHO)
+    bmi_category = case_when(
+      BMI < 18.5 ~ "Underweight",
+      BMI >= 18.5 & BMI < 25 ~ "Normal",
+      BMI >= 25 & BMI < 30 ~ "Overweight",
+      BMI >= 30 ~ "Obese"
+    ),
+    
+    # Blood pressure (JNC guidelines)
+    bp_category = case_when(
+      BloodPressure < 80 ~ "Normal",
+      BloodPressure >= 80 & BloodPressure < 90 ~ "Elevated",
+      BloodPressure >= 90 ~ "Hypertensive"
+    ),
+    
+    # Age risk group
+    age_group = case_when(
+      Age < 30 ~ "Young adult (< 30)",
+      Age >= 30 & Age < 45 ~ "Middle age (30–44)",
+      Age >= 45  ~ "High risk (≥ 45)"
+    ),
+    
+    # Insulin status
+    insulin_status = case_when(
+      Insulin <= 166 ~ "Normal",
+      Insulin > 166  ~ "Hyperinsulinaemia"
+    ),
+    
+    # Pregnancy risk
+    pregnancy_risk = case_when(
+      Pregnancies == 0  ~ "Never pregnant",
+      Pregnancies >= 1 & Pregnancies < 3 ~ "Low (1–2)",
+      Pregnancies >= 3  ~ "Elevated (≥ 3)"
+    )
+  ) |>
+  # convert all new variables to ordered factors
+  mutate(
+    glucose_category = factor(glucose_category,
+                              levels = c("Normal", "Prediabetic", "Diabetic")),
+    bmi_category     = factor(bmi_category,
+                              levels = c("Underweight", "Normal",
+                                         "Overweight", "Obese")),
+    bp_category      = factor(bp_category,
+                              levels = c("Normal", "Elevated", "Hypertensive")),
+    age_group        = factor(age_group,
+                              levels = c("Young adult (< 30)",
+                                         "Middle age (30–44)",
+                                         "High risk (≥ 45)")),
+    insulin_status   = factor(insulin_status,
+                              levels = c("Normal", "Hyperinsulinaemia")),
+    pregnancy_risk   = factor(pregnancy_risk,
+                              levels = c("Never pregnant", "Low (1–2)",
+                                         "Elevated (≥ 3)"))
+  )
+```
+
+```{r}
+# filtering our summary columns 
+flagged_data <- pima_flagged |> 
+  select(c(Outcome,glucose_category:pregnancy_risk)) |> 
+  mutate(
+    Outcome = factor(Outcome,labels = c("Non-diabetic","Diabetic"))
+  )
+```
+
+**Comparison of Clinical Thresholds by Outcome**
+
+```{r}
+# let's load the gtsummary package for the graceful handling of this task
+library(gtsummary)
+# creating the table
+flagged_data |> 
+  tbl_summary(
+    by = Outcome,
+    statistic  = all_categorical() ~ "{n} ({p}%)",
+    missing  = "no" ,
+    label = list(
+      glucose_category~ "Glucose Category",
+      bmi_category~ "BMI Category",
+      bp_category ~ "bp Category"
+    )) |> 
+  add_p() |>
+  add_overall() |>
+  bold_labels() |>
+  modify_header(label ~ "**Clinical Variable**") |>
+  modify_caption("**Clinical Threshold Distribution by Diabetes Status**") |> 
+  as_gt() |> #creates a gt object to allow the table.width fun to work: optional
+  gt::tab_options(table.width = "100%")
+
+```
+
+**Comparison of variables stratified by Outcome**
+
+```{r}
+pima |> 
+  mutate(Outcome = factor(Outcome, levels=c(1,0), labels = c("Diabetic","Non-diabetic"))) |> 
+  tbl_summary(
+    by = Outcome,
+    statistic = list(
+      all_categorical()~"{n} ({p}%)",
+      all_continuous()~"{median}({IQR})"
+    ),
+    missing = 'no',
+    
+  ) |> 
+  add_p() |> 
+  modify_header(label~"**Variables**") |> 
+  modify_caption("**Comparison of continous variable stratified by Outcome**") |> 
+  as_gt() |> 
+  gt::tab_options(table.width = "100%")
+```
+
+```{r}
+model1 <- glm(
+  formula = Outcome~Glucose+BMI+DiabetesPedigreeFunction+Insulin+Age+Pregnancies,
+              family = "binomial",
+              data = pima)
+tbl_regression(model1, exponentiate = TRUE) |> 
+  as_gt() |> 
+  gt::tab_options(table.width = "100%")
+```

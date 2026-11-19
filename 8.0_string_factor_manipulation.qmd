@@ -1,0 +1,696 @@
+---
+Author: 'Samuel Abugare'
+title: "Diabetes Dataset"
+format: 
+  html:
+    theme: litera
+    toc: true
+    toc-depth: 3
+    toc-location: right
+    code-fold: true
+    code-tools: true
+    page-layout: full
+    df-print: paged
+    fig-align: center
+    highlight-style: github
+editor: visual
+---
+
+### Factor Manipulation with Tidyverse:
+
+All stringr functions begin with str\_ and take a string vector as their first argument. They wrap regular expressions in a consistent, readable interface.
+
+```{r}
+# loading the tidyverse libary
+library(tidyverse)
+```
+
+### **Detection:**
+
+Detects a pattern in a string and returns a logical values of true or false.The functions for string detection include: str_detect, str_starts, str_ends, etc
+
+```{r}
+top_unis <- c("Stanford University", "UC Berkeley", "MIT", "Caltech")
+#[1] detect 
+str_detect(top_unis, "University")
+```
+
+```{r}
+# you can use the boolean mask provided to filter the top_unis vector
+top_unis[str_detect(top_unis,"University")]
+```
+
+```{r}
+#[2] str_start(): finds 
+names <- c('Matilda','Jemimah','Martha','Gracilda','Samantha')
+str_starts(names,'Ma')
+# let's filter out those names 
+names[str_starts(names,'Ma')]
+```
+
+```{r}
+# str_end : detects end pattern of string
+str_ends(names,'da')
+names[str_ends(names,'da')]
+```
+
+```{r}
+#[3] str_count : counts the number of occurence of a pattern
+oral <- 'The world is a small place for us to fight'
+str_count(oral,'s')
+```
+
+```{r}
+# let's try it with our vector: if it is a vector it loops through each vector and counts the pattern it finds:
+str_count(names,'a')
+```
+
+### Extraction:
+
+Pull out parts of a string
+
+#### **a. str_sub()**
+
+```{r}
+#[1] str_sub(string,start,end) : makes a substring from position start to end 
+dates <- c("2024-01-15", "2023-12-10")
+str_sub(dates, 1, 4)  # we extract characters from position 1 to 4
+```
+
+**Note: In str_sub() when you reassign a sub string to any value, it recreates a copy of the original variable with the same name but not modify in place.**
+
+```{r}
+# masking senstive data: 
+phones <- c("0241234567", "0559876543")
+
+# the substrings are replaced with  four stars to hide those numbers:
+str_sub(phones, 4, 7) <- "****"
+phones
+```
+
+```{r}
+#[2] str_extract(string, pattern) : extract first occurence of a string pattern
+# finds the first match of a digit in the string: there is none
+str_extract(names,"\\d")
+```
+
+#### b. str_extract()
+
+Extract the first occurrence of a specified pattern in a string: very powerful in cleaning messy text or extracting information
+
+```{r}
+# Example 1: let's extract the id in this patient information
+text <- "PatientID: GH-2345 | Test: HIV | Result: Positive"
+str_extract(text,"GH-\\d+")
+
+```
+
+```{r}
+# Example 2 : let's extract this phone number
+text <- "Call me on 024-123-4567 tomorrow"
+str_extract(text, "\\d{3}-\\d{3}-\\d{4}")
+```
+
+```{r}
+# Example 3: Let's try to extract an email address
+text <- "Contact: john.doe@gmail.com for follow-up,samuelabugare@gmail.com"
+str_extract(text, "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+")
+
+# see that it matches only the first occurence of the pattern
+```
+
+You'd see that str_extract() only extracts the first match; what if we want all the matches
+
+#### str_extract_all()
+
+Extract all matches of the regular pattern from the string
+
+```{r}
+# Example 1 : Let's use the same contact text 
+str_extract_all(text, "[a-zA-Z0-9_.%-+]+@[a-zA-Z0-9.]+")
+```
+
+### Replacement and Substitution
+
+#### **a. str_replace(string,pattern,repl)** :
+
+Replaces the first match of a string pattern
+
+```{r}
+# let's find the digits part and replace it with a text
+birthday <- "Your birthday is on January 7,1995"
+str_replace(birthday,"\\d{4}",'Nineteen ninety-five')
+```
+
+#### **b. str_replace_all(string, pattern, repl)**
+
+Replaces all matches of the pattern
+
+```{r}
+contract <- "Your two phone numbers are 0245768526 and 0241369095"
+str_replace_all(contract,'\\d{10}','XXXXXXX')
+```
+
+### Splitting & Combining
+
+This part of string function is for splitting and combine strings using string r**:**
+
+#### **a. str_split(string,pattern)**
+
+This splits a string passed on the pattern you supply and it splits into a list:
+
+```{r}
+# Example : say i want to split my string based on the separator (-)
+case <- "Samuel-1993-CompScience"
+str_split(case,"-")
+```
+
+```{r}
+# Let's take a second example :
+data <- c("HIV,Positive,2024", "TB,Negative,2023")
+str_split(data, ",")
+```
+
+```{r}
+# Let's take another more example: splitting by multiple delimeters
+text <- c("Glucose=120;BMI=30", "Glucose=140;BMI=28")
+str_split(text, "[=;]")
+```
+
+#### b. str_split_fixed(string, pattern, n)
+
+Say you want to return a structured results after splitting information, then str_split_fixed() is what you need. it allows you to add how many columns you want the captured patterns to be spread into
+
+```{r}
+# let's take this example :
+data <- c("HIV,Positive,2024", "TB,Negative,2023")
+str_split_fixed(data, ",", 3)
+```
+
+#### Combining strings :
+
+#### a. str_c(x,y, sep = "")
+
+The cleanest way to concatenate(join) strings in R
+
+```{r}
+# say we want to combine these two strings
+str_c('hello','world',sep = " ")
+```
+
+```{r}
+# say we want to combine first and second names from two vectors
+first_name <- c("Samuel", "Ama", "Kojo")
+last_name  <- c("Abugare","Mensah", "Owusu")
+full_name <- str_c(first_name,last_name, sep = " ")
+full_name
+```
+
+Note that for the functions above, similar function exist in base R: Example for str_c() in stringr, base R has paste() which basically does the same thing. In my opinion, stringr function names are more descriptive than base R :
+
+```{r}
+# let's do the above with paste in Base R
+paste(first_name,last_name, sep = " ")
+```
+
+#### b. str_flatten(vector, collapse = "")
+
+Collapses a vector into one string
+
+```{r}
+# let's look at the name vectors : first name
+str_flatten(first_name,collapse = " ")
+```
+
+### Case Conversion
+
+Case conversion comprises of many function for converting string to a specific case:
+
+#### a. str_to_upper(), str_to_lower(), str_to_title() etc
+
+```{r}
+# let's work on some examples 
+text <- 'Today is our day'
+# upper case
+str_to_upper(text)
+# lower case 
+str_to_lower(text)
+# title case
+str_to_title(text)
+# string to sentence case
+str_to_sentence(text)
+```
+
+### Padding, Trimming & Formatting
+
+Control whitespace and width
+
+```{r}
+# let's take some example 
+my_string <- "  you can't have her  "
+
+# trim left
+str_trim(my_string, side = 'left')
+# trim right
+str_trim(my_string, side = "right")
+
+# trim both sides
+str_trim(my_string, side = "both")
+
+```
+
+Trimming is very important to be done on data before matching , joining or comparisons are mad**e**
+
+```{r}
+# cleaning messy data : 
+names <- c(" John", "Mary ", "  Alice  ")
+str_trim(names)
+```
+
+```{r}
+# str_trim cannot remove whitespaces between text 
+bn_ws <- c(" John  Slick", "Nathaniel    Hyde")
+# this removes the extra white spaces between the names
+str_squish(bn_ws)
+```
+
+#### `str_pad()`
+
+This function is used to **make all strings the same length by adding extra characters (padding)**.
+
+```{r}
+# Let's take an example :
+fruits <- c('guava','weed','cucumber')
+str_pad(fruits, width = 7, side = "both", pad = " ")
+```
+
+### Length & Position
+
+Measure or locate things in a string
+
+```{r}
+# length of string: gives the length of the string: if vector, length of each item
+str_length(fruits)
+# same as base r nchar()
+nchar(fruits)
+```
+
+#### a. str_locate()
+
+finds the start and end position of a pattern in a string : counting of characters includes spaces. finds only first match
+
+```{r}
+x <- "You are on12 and can't have nothing"
+str_locate(x, pattern = "\\d+")
+```
+
+#### b. str_locate_all()
+
+locate the start and end position of all matches of the pattern in the string
+
+```{r}
+x1 <- "old age has come 10 times but i have dodged 60 times"
+str_locate_all(x1,"\\d+")
+```
+
+### Interpolation & Templating
+
+Used to embed variables in strings:
+
+**a. str_glue(str, variable)**
+
+```{r}
+# Let's call this email in our string
+
+email <-'samuelabugare@gmail.com'
+str_glue("my email is: {email}")
+
+# you can use paste from base R to get the same effect
+paste('My email is :', email)
+```
+
+**b. str_glue_data(str, variable)**
+
+It’s used to create strings by inserting variables **directly from a data frame (or list/environment)** into a template.
+
+```{r}
+df <-  data_frame(
+  name = c("samuel",'Johnny','Emma','Manuel'),
+  age = c(22,32,12,45)
+)
+str_glue_data(df, "Name : {name}, Age : {age}")
+```
+
+```{r}
+# let's take another example 
+bio_info <- tibble(
+  name = c('Jane','Molly','Dareen'),
+  glucose = c(5.1,4.9,3.3)
+)
+# let's do something interesting 
+str_glue_data(
+  bio_info,
+  "Patient : {name} your blood glucose is {ifelse(glucose >3.5,'High','Normal')}"
+)
+```
+
+```{r}
+# more examples
+df <- data.frame(
+  id = 1:3,
+  date = Sys.Date()
+)
+# let's create files by id and date
+str_glue_data(df, "report_{id}_{date}.csv")
+```
+
+### Forcats — Taming Categorical Variables
+
+Factors are R's representation of categorical variables. forcats provides tools for reordering, relabeling, and collapsing factor levels operations that have an outsized impact on the quality of visualizations and models.why factor matters: without factor, R treat categories as plain strings
+
+### **Creating factors :**
+
+#### a. factor(), b. as_factor(), c. as.factor() : as_factor is tidyverse forcats the rest are base R
+
+```{r}
+# when you load tidyverse it is part of it but you can load it separately
+library(forcats)
+# you can convert to factor by using any of these: but factor allows you to reorder
+status <- c("low", "high", "medium", "low", "high")
+stats_f <- factor(status,levels = c("low","medium","high"))
+stats_g <- as_factor(status)
+class(status)
+class(stats_f)
+class(stats_g)
+```
+
+#### b. Checking number of levels, level counts etc
+
+```{r}
+# show levels 
+levels(stats_f)
+
+# shows total count of unique levels
+nlevels(stats_f)
+```
+
+```{r}
+# counts number of observations under each level
+fct_count(stats_f)
+```
+
+```{r}
+# shows unique factors in the series or vector
+fct_unique(stats_f)
+```
+
+### Reordering Levels
+
+The most common use case — controls how bars/lines appear in ggplot2
+
+```{r}
+f <- factor(c("banana", "apple", "cherry", "apple", "banana", "banana"))
+fct_count(f)
+```
+
+#### a. order by frequency and first appearance
+
+```{r}
+# default levels
+levels(f)
+cat("----------------------------------------\n")
+# Order by frequency (most common first) : see the levels below changed
+fct_infreq(f)
+```
+
+```{r}
+# order by first appearance : reorders by how they appear in the original data
+fct_inorder(f)
+```
+
+#### b. Reversing current order
+
+```{r}
+# reverses the current order : see the order reveresed 
+fct_rev(f)
+```
+
+```{r}
+# manually changing order like in factor(vector, levels = (x,y,z))
+fct_relevel(f,"banana",'apple','cherry')
+```
+
+```{r}
+# Relevel by moving one level to front: see cherry comes first
+fct_relevel(f, "cherry")
+```
+
+### Let's work on more examples with a data frame:
+
+We can reorder a factor by another variable: instead of ordering by say frequency or as in they originally occur or appear, we can order by another variable. say we want to reorder department by salary
+
+```{r}
+# creating a data frame
+survey <- data.frame(
+  dept   = c("HR", "IT", "Finance", "IT", "HR", "HR"),
+  salary = c(50, 90, 75, 95, 52, 48)
+)
+head(survey,4)
+```
+
+```{r}
+# let's reorder the dept by salary: reorder the dept by mean salary in descending order 
+
+survey1 <- survey |> 
+  mutate(
+    dept = fct_reorder(dept,salary, .fun = mean, .desc = TRUE)
+  )
+levels(survey1$dept)
+```
+
+Let's plot this :
+
+```{r fig.dpi=300, fig.height= 7, fig.width= 14}
+ggplot(
+  survey, aes(x = fct_reorder(dept,salary,.fun = mean,.desc = TRUE), y = after_stat(count))
+)+
+  geom_col(
+    stat = 'count',
+    fill = "coral2",
+    width = 0.5
+  )+
+  labs(
+    title = "Factor reordering example",
+    x = "Department",
+    y = "Salar($)",
+    caption = "Source: sambuganalytics"
+  )+
+  geom_text(
+    stat = "count",
+    aes(label = paste(after_stat(count),"people"),
+        vjust = -0.4)
+  )+
+  geom_hline(
+    yintercept = 3,
+    color = "lightpink",
+    linewidth = 1.2,
+    linetype = "dashed"
+  )+annotate(
+  "text",
+  x = 2,
+  y = 3,
+  label = "Threshold = 3",
+  hjust = 1.1,   # pushes slightly inside from the right edge
+  vjust = -0.5,
+  color = "black",
+  size = 4
+)+
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15)))+
+  theme_bw()+
+  theme(
+    plot.title = element_text(hjust = 0),
+    axis.title = element_text(face = "bold", size =11),
+    axis.text =  element_text(face = "bold", size = 11),
+    plot.caption = element_text(face = "bold")
+  )
+```
+
+### Renaming Levels
+
+Functions to be considered here are for recoding or renaming factors : Sometimes you have factors in format or levels you don't want and would want to recode, fct-recode() does the work:
+
+#### a.fct_recode(vector, "new_name"= "old name1), 'new_name2"= "oldname2")
+
+```{r}
+# let's look at how to do that with this vector
+f <- factor(c("M", "F", "F", "M", "M"))
+
+# factor recode
+fct_recode(f, 
+           "Female"= "F",
+           "Male"= "M")
+```
+
+#### b. fct_relabel(vector, function)
+
+```{r}
+# let's look at this example 
+gender <- factor(c("male",'female','male','male','female'))
+
+# let's make them title case
+fct_relabel(gender, str_to_title)
+```
+
+```{r}
+# let's add put in another function for the relabelling: 
+# Let's add sex_ to each level in gender
+fct_relabel(gender, \(x) paste0("sex_",x))
+```
+
+### **Collapsing and lumping levels**
+
+Reduce many categories into fewer ones; for instance you have male, female and wants to lump the remaining gender identity into something like others.
+
+#### **a. fct_lump_n(vector, n)**
+
+Keeps top n most frequent levels and returns the rest as others
+
+```{r}
+# Let's take this example 
+brand <- factor(c("Nike","Adidas","Puma","Reebok","Fila","Nike","Adidas","Nike"))
+
+# let's lump the first two most frequent brands and then the rest
+fct_lump_n(brand, n = 2) 
+```
+
+it reorders the brand into Adidas, Nike and Other. Adidas and Mike are the top two most frequent brands and then the rest lump into others.
+
+#### b. fct_lump_min(vector, min = x)
+
+keep factors that appear at least min times and then lumps the rest into other
+
+```{r}
+# Keep levels that appear at least min times
+fct_lump_min(brand, min = 2)
+```
+
+#### c. fct_lump_prop(vector, prop = 0.x)
+
+keep factors above a certain proportion and then lump the rest as other
+
+```{r}
+# Keep levels that appear at least min times
+fct_lump_prop(brand, prop = 0.3)
+```
+
+#### d. Collapse levels into groups
+
+sometimes you might want to put more levels under one big level
+
+```{r}
+# let's take an example :
+fct_collapse(brand,
+  "Big3"  = c("Nike", "Adidas", "Puma"),
+  "Other" = c("Reebok", "Fila")
+)
+```
+
+### Adding & Dropping Levels
+
+We are looking at how to add or remove levels from a factor vector:
+
+#### a. fct_drop(vector, level)
+
+```{r}
+# Drop levels that have no observations
+f2 <- factor(c("cat", "dog"), levels = c("cat", "dog", "bird"))
+fct_drop(f2)          # removes "bird"
+```
+
+We can remove specific level by specifying the specific unused level.
+
+```{r}
+fct_drop(f2, "bird")  # drop a specific unused level
+```
+
+```{r}
+# we can drop levels after filtering by a specific factor level
+survey |> 
+  filter(dept == "IT") |> 
+  mutate(dept = fct_drop(dept))   # removes HR, Finance from levels
+```
+
+**You have to explicitly drop levels after filtering by a factor level:**
+
+```{r}
+# lets' demonstrate the levels we have after filtering
+dept_reg <- survey |> 
+  mutate(dept = factor(dept)) |> 
+  filter(dept == "IT")
+levels(dept_reg$dept)
+```
+
+### Handling NA & Unknown Values
+
+#### a. fct_na_value_to_level(vector, level = "level_name")
+
+```{r}
+# let's demonstrate with some examples:
+f <- factor(c("yes", "no", NA, "yes", NA))
+
+# making NA a specific level:
+fct_na_value_to_level(f, level = "Unknown")
+```
+
+### Changing Level Order by Shuffling
+
+sometimes you might want to shuffle the levels for all possible reasons.
+
+```{r}
+f <- factor(c("a", "b", "c", "d"))
+# let's see the original order 
+levels(f)
+cat("----------------------------------------------")
+# Randomly shuffle levels (useful for simulations)
+fct_shuffle(f)
+```
+
+**shift levels left or right by n position**
+
+```{r}
+# Shift levels left or right by n positions
+levels(f)
+fct_shift(f, n = 1)   # shifts left; moves each element one step backward
+fct_shift(f, n = -1)  # shifts right : moves each element one step forward
+```
+
+### Real-World Workflow Example
+
+```{r}
+# Simulate a customer satisfaction dataset
+set.seed(42)
+df <- data.frame(
+  region  = sample(c("North", "South", "East", "West", "Central"), 200, replace = TRUE),
+  rating  = sample(c("Poor", "Fair", "Good", "Excellent"), 200, replace = TRUE),
+  score   = runif(200, 1, 10)
+)
+
+df |> 
+  mutate(
+    # Fix natural order of ordinal variable
+    rating = fct_relevel(rating, "Poor", "Fair", "Good", "Excellent"),
+
+    # Lump small regions into "Other"
+    region = fct_lump_n(region, n = 3),
+
+    # Rename a level
+    region = fct_recode(region, "Midwest" = "Central")
+  ) |> 
+  group_by(region, rating) |> 
+  summarise(avg_score = mean(score), .groups = "drop") %>%
+
+  # Plot with correct ordering
+  ggplot(aes(x = rating, y = avg_score, fill = region)) +
+  geom_col(position = "dodge") +
+  labs(title = "Avg Score by Rating and Region")
+```

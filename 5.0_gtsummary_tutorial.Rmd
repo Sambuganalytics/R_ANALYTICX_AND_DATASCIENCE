@@ -1,0 +1,99 @@
+---
+title: "gtsummary_tutorials_1"
+author: "SumbugAnalytics"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## [Gt-summary Tutorial]{.underline}
+
+This tutorial gives a comprehensive introduction to the gtsummary package in R\
+This document focus on how to get your research ready tables in descriptive statistics and modeling.
+
+### [1.0 Introduction:]{.underline}
+
+### **`tbl_summary()` — Descriptive statistics**
+
+Creates a summary table. Automatically detects variable type and applies median (IQR) for continuous, n (%) for categorical. This is a minimal example
+
+```{r}
+# loading required libraries
+library(gtsummary)
+library(tidyverse)
+```
+
+```{r}
+# loading the trial data
+data <- trial
+head(data,5)
+```
+
+**a. Using the pipe operator and tidy select to select columns for the descriptive statistics**
+
+```{r}
+# let's select a few variables for this example 
+data |> 
+  select(age,grade,response,trt) |> 
+  tbl_summary(
+    by = trt # the by argument is like, groupby or stratify by
+  ) 
+```
+
+**b. Passing the data directly and using the include parameter to set argument for columns to include in the descriptive statistics**
+
+```{r}
+# let's use this example:
+data |> 
+  tbl_summary(
+    by = trt,
+    include = c(age,grade,response,trt)
+  )
+# we get the same results.
+```
+
+**c. You can also not use the pipe operator and supply the data as an argument in the tbl_summary function**
+
+```{r}
+# here we pass the data to the function directly not throught pipes 
+tbl_summary(
+  data = data,
+  by = trt, 
+  include = c(age,grade,response,trt)
+)
+# Great, we get same results: Three ways of doing the same thing
+```
+
+### [2.0 Let's add more features and customization]{.underline}
+
+Let's first work on the **statistics** to use: the **labels,digits and missing value .**In gt_summary, to customize a number of variables in a given statistical way or label multiple columns or force types, we pass a list as an argument to the parameter of interest. **Statistic glue strings**
+
+As a further illustration of the point above, the`statistic` argument uses **glue** syntax variables inside `{}` are substituted. Available tokens: `{mean}` `{median}` `{sd}` `{var}` `{min}` `{max}` `{p25}` `{p75}` `{sum}` for continuous; `{n}` `{N}` `{p}` for categorical.
+
+```{r}
+data |> 
+  select(age,marker,grade,trt) |> 
+  tbl_summary(
+    by = trt,
+    statistic = list(
+      # setting the type of statistics to show for the datype of a variable/column
+      all_categorical()~"{n} / {N}({p}%)",
+      all_continuous()~"{mean} ± {sd}"
+    ),
+    label = list(
+    # chaning variable/column names: the new labels will show in our output
+      age~"Age, yrs",
+      grade~"Grade",
+      marker~"Biomarker Level"
+    ),
+    digits = list(
+      # definining the number of decimal places for conitnous variables
+      all_continuous()~2,
+      all_categorical()~c(0,0,1)
+    ),
+    missing = "no" # exclude missing in the calculation and output
+  )
+```

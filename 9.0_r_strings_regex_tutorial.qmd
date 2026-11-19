@@ -1,0 +1,584 @@
+---
+title: "Strings & Regular Expressions in Base R"
+subtitle: "A practical tutorial from fundamentals to regex mastery"
+author: "Laboratory Scientist | Nkwanta South Municipal Hospital"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    toc-location: left
+    theme: flatly
+    highlight-style: github
+    code-fold: false
+    code-tools: true
+    number-sections: true
+    smooth-scroll: true
+    self-contained: true
+    css: styles.css
+execute:
+  echo: true
+  eval: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+#| eval: false
+# All code in this document is for learning — set eval: true to run interactively
+```
+
+------------------------------------------------------------------------
+
+## Introduction
+
+In Python, string manipulation is tightly coupled to the object (e.g. `"hello".upper()`). In R, strings are **character vectors** and manipulation is done through **functions** that act on them. This tutorial builds your base R string and regex skills from first principles — before moving to tidyverse's `stringr`, understanding the foundation makes everything click.
+
+::: callout-note
+**Learning approach:** Intuition first, syntax second. Every function is explained by *what job it does* before showing the code.
+:::
+
+------------------------------------------------------------------------
+
+## Part 1-String Fundamentals
+
+## Creating Strings
+
+In R, strings are called **character vectors**. Single and double quotes are interchangeable:
+
+```{r}
+x <- "Hello, Ghana!"
+y <- 'Hello, Ghana!'
+identical(x, y)   # TRUE — they are the same
+```
+
+A single string is a character vector of **length 1**. This is where Python users often trip up:
+
+```{r}
+length("hello")   # 1  — one ELEMENT in the vector
+nchar("hello")    # 5  — five CHARACTERS in the string
+```
+
+> `length()` counts elements. `nchar()` counts characters. Always distinguish these two.
+
+## Escaping Special Characters
+
+Some characters need a backslash `\` to be interpreted correctly inside a string:
+
+| Escape | Meaning              |
+|--------|----------------------|
+| `\n`   | newline              |
+| `\t`   | tab                  |
+| `\\`   | literal backslash    |
+| `\"`   | literal double quote |
+| `\'`   | literal single quote |
+
+```{r}
+cat("Line 1\nLine 2")       # prints on two lines
+cat("Sample\tResult")       # Sample    Result
+cat("He said \"positive\"") # He said "positive"
+```
+
+## `print()` vs `cat()`
+
+These behave differently and it matters:
+
+```{r}
+x <- "malaria\npositive"
+
+print(x)   # shows: [1] "malaria\npositive"  — R representation
+cat(x)     # shows:
+           # malaria
+           # positive               — human-readable output
+```
+
+::: callout-tip
+Use `print()` to inspect a string's R structure. Use `cat()` to see what it actually looks like as output.
+:::
+
+## Character Vectors (Strings Plural)
+
+```{r}
+fruits <- c("mango", "plantain", "pawpaw")
+
+length(fruits)   # 3  — three elements
+nchar(fruits)    # 5 8 6 — character count of EACH element
+```
+
+Most base R string functions are **vectorized** — they work on every element automatically, with no loop needed. This is a powerful R idiom.
+
+------------------------------------------------------------------------
+
+## Part 2 — Core Base R String Functions
+
+## Group 1: Building & Combining — `paste()` and `paste0()`
+
+`paste()` joins strings together. The `sep` argument controls what goes *between arguments*:
+
+```{r}
+paste("malaria", "diagnostics")             # "malaria diagnostics"
+paste("malaria", "diagnostics", sep = "-")  # "malaria-diagnostics"
+paste0("sample", 3)                         # "sample3"  (sep = "" by default)
+```
+
+The `collapse` argument squishes a **vector** into a single string:
+
+```{r}
+labs <- c("haematology", "microbiology", "parasitology")
+
+paste(labs, sep = "-")      # does nothing useful here
+# "haematology" "microbiology" "parasitology"  — still 3 elements
+
+paste(labs, collapse = "-") # collapses into ONE string
+# "haematology-microbiology-parasitology"
+```
+
+::: callout-important
+**`sep` vs `collapse`:**
+
+- `sep` → what goes between *arguments* (e.g. `paste("a", "b", sep="-")`)
+- `collapse` → what goes between *vector elements* when squishing many into one
+:::
+
+## Group 2: Measuring & Extracting — `nchar()` and `substr()`
+
+```{r}
+x <- "Plasmodium falciparum"
+
+nchar(x)          # 21
+substr(x, 1, 10)  # "Plasmodium"   (start, stop — 1-indexed!)
+substr(x, 12, 21) # "falciparum"
+```
+
+`substr()` also does **in-place replacement**:
+
+```{r}
+x <- "malaria case"
+substr(x, 1, 7) <- "MALARIA"
+x   # "MALARIA case"
+```
+
+Vectorized over a vector of strings:
+
+```{r}
+samples <- c("PF001", "PF002", "PF003")
+substr(samples, 3, 5)   # "001" "002" "003"
+```
+
+## Group 3: Case & Whitespace — `toupper()`, `tolower()`, `trimws()`
+
+```{r}
+toupper("pfhrp2")   # "PFHRP2"
+tolower("HRP2")     # "hrp2"
+```
+
+`trimws()` removes leading/trailing whitespace — essential when reading messy lab data:
+
+```{r}
+trimws("  positive  ")                    # "positive"
+trimws("  positive  ", which = "left")    # "positive  "
+trimws("  positive  ", which = "right")   # "  positive"
+```
+
+::: callout-tip
+When importing lab result data, someone often types `" Positive"` with a stray space. `trimws()` + `tolower()` together normalizes these reliably.
+:::
+
+## Group 4: Splitting — `strsplit()`
+
+Splits a string on a delimiter. Returns a **list** (because different elements may split into different numbers of pieces):
+
+```{r}
+x <- "pfhrp2;pfhrp3;kelch13"
+strsplit(x, ";")
+# [[1]]
+# [1] "pfhrp2"  "pfhrp3"  "kelch13"
+```
+
+Use `[[1]]` to extract the vector from the list:
+
+```{r}
+genes <- strsplit(x, ";")[[1]]
+genes[2]   # "pfhrp3"
+```
+
+Vectorized over multiple strings:
+
+```{r}
+samples <- c("PF-001-pos", "PF-002-neg")
+strsplit(samples, "-")
+# [[1]]  "PF" "001" "pos"
+# [[2]]  "PF" "002" "neg"
+```
+
+## Group 5: Searching — `grep()` and `grepl()`
+
+These are your **"find which strings match"** tools:
+
+| Function  | Returns                         | Think of it as      |
+|-----------|---------------------------------|---------------------|
+| `grepl()` | logical vector (`TRUE`/`FALSE`) | "does it match?"    |
+| `grep()`  | integer indices (or values)     | "which ones match?" |
+
+```{r}
+results <- c("positive", "negative", "positive", "invalid", "negative")
+
+grepl("pos", results)              # TRUE FALSE TRUE FALSE FALSE
+grep("pos", results)               # 1 3
+grep("pos", results, value = TRUE) # "positive" "positive"
+```
+
+Use `grepl()` for filtering with `[]`:
+
+```{r}
+results[grepl("pos", results)]   # "positive" "positive"
+```
+
+::: callout-note
+**Memory aid:** `grepl` = **grep logical** — same as `grep` but returns `TRUE`/`FALSE` instead of positions.
+:::
+
+## Group 6: Replacing — `sub()` and `gsub()`
+
+| Function | Replaces                     |
+|----------|------------------------------|
+| `sub()`  | **first** match only         |
+| `gsub()` | **all** matches (g = global) |
+
+```{r}
+x <- "the patient tested positive, positive"
+
+sub("positive", "POSITIVE", x)    # "the patient tested POSITIVE, positive"
+gsub("positive", "POSITIVE", x)   # "the patient tested POSITIVE, POSITIVE"
+```
+
+Vectorized — works element-by-element on a vector:
+
+```{r}
+ids <- c("sample_001", "sample_002", "sample_003")
+gsub("sample_", "PF", ids)   # "PF001" "PF002" "PF003"
+```
+
+------------------------------------------------------------------------
+
+## Part 3 — Regular Expressions in R
+
+## The Core Idea
+
+A regular expression (regex) is a **pattern language** — it describes the *shape* of text, not just exact characters.
+
+Instead of asking *"does this equal 'positive'?"* you ask *"does this contain a word starting with 'p' and ending in 'e'?"*
+
+In R, regex patterns slot into the functions you already know:
+
+```{r}
+grepl("pattern", x)    # x is your string or vector
+gsub("pattern", "replacement", x)
+```
+
+## Literal Characters
+
+The simplest regex is exact text:
+
+```{r}
+grepl("malaria", c("malaria positive", "typhoid", "malaria negative"))
+# TRUE FALSE TRUE
+```
+
+## The Dot `.` — Any Character
+
+`.` matches **any single character** (except newline):
+
+```{r}
+grepl("P.003", c("PF003", "PX003", "P003", "PFF003"))
+# TRUE   TRUE   FALSE    FALSE
+```
+
+To match a **literal dot**, escape it with `\\.`:
+
+```{r}
+grepl("3\\.14", c("3.14", "3X14"))   # TRUE FALSE
+```
+
+::: callout-important
+**R double-backslash rule:** R's string parser reads `\` first. So to pass `\.` to the regex engine, you must write `\\.` in R — the first `\` escapes the second for R, delivering `\.` to regex.
+:::
+
+## Character Classes `[ ]`
+
+Square brackets define a **set of allowed characters** at one position:
+
+```{r}
+grepl("P[FX]003", c("PF003", "PX003", "PZ003"))
+# TRUE   TRUE    FALSE
+```
+
+Ranges:
+
+```{r}
+# [a-z]       any lowercase letter
+# [A-Z]       any uppercase letter
+# [0-9]       any digit
+# [a-zA-Z]    any letter
+# [a-zA-Z0-9] any alphanumeric
+```
+
+Negation with `^` **inside** brackets:
+
+```{r}
+grepl("[^0-9]", c("PF001", "12345"))
+# TRUE  FALSE
+# "PF001" contains non-digit characters; "12345" does not
+```
+
+## Shorthand Character Classes
+
+| Shorthand | Meaning            | Equivalent              |
+|-----------|--------------------|-------------------------|
+| `\\d`     | any digit          | `[0-9]`                 |
+| `\\D`     | any non-digit      | `[^0-9]`                |
+| `\\w`     | word character     | `[a-zA-Z0-9_]`          |
+| `\\W`     | non-word character | `[^a-zA-Z0-9_]`         |
+| `\\s`     | whitespace         | space, tab, newline     |
+| `\\S`     | non-whitespace     | anything but whitespace |
+
+```{r}
+grepl("\\d", c("PF001", "falciparum"))         # TRUE  FALSE
+grepl("\\s", c("P falciparum", "Pfalciparum")) # TRUE  FALSE
+grepl("\\w+", c("pfhrp2", "---"))              # TRUE  FALSE
+```
+
+## Anchors `^` and `$`
+
+Anchors match **positions**, not characters:
+
+| Anchor | Matches         |
+|--------|-----------------|
+| `^`    | start of string |
+| `$`    | end of string   |
+
+```{r}
+x <- c("positive", "false positive", "positive result")
+
+grepl("positive", x)     # TRUE TRUE TRUE  — anywhere in string
+grepl("^positive", x)    # TRUE FALSE TRUE — must START with it
+grepl("positive$", x)    # TRUE TRUE FALSE — must END with it
+grepl("^positive$", x)   # TRUE FALSE FALSE — must be EXACTLY this
+```
+
+::: callout-tip
+`^` and `$` together are your **validation anchors** — use them to enforce that an entry matches a format exactly, not just contains a substring.
+:::
+
+## Quantifiers — How Many Times?
+
+Quantifiers attach to the character or class *immediately before* them:
+
+| Quantifier | Meaning           |
+|------------|-------------------|
+| `?`        | 0 or 1 (optional) |
+| `*`        | 0 or more         |
+| `+`        | 1 or more         |
+| `{n}`      | exactly n         |
+| `{n,}`     | at least n        |
+| `{n,m}`    | between n and m   |
+
+```{r}
+x <- c("colour", "color", "colouur")
+
+grepl("colou?r", x)      # TRUE TRUE FALSE  — u is optional (0 or 1)
+grepl("colou{1}r", x)    # TRUE FALSE FALSE — exactly one u
+grepl("colou{1,2}r", x)  # TRUE FALSE TRUE  — one or two u's
+```
+
+Practical sample ID validation:
+
+```{r}
+ids <- c("PF1", "PF12", "PF123", "PF1234")
+grepl("^PF\\d{3}$", ids)   # FALSE FALSE TRUE FALSE — exactly 3 digits
+```
+
+## Alternation `|` — OR Logic
+
+```{r}
+grepl("positive|negative", c("positive", "negative", "invalid", "pos"))
+# TRUE TRUE FALSE FALSE
+```
+
+Group with parentheses to scope the OR:
+
+```{r}
+grepl("^(positive|negative)$", c("positive", "negative", "false positive"))
+# TRUE  TRUE  FALSE
+```
+
+## Capture Groups `( )` and Backreferences
+
+Parentheses serve two purposes:
+
+**1. Grouping** — scope quantifiers and alternation:
+
+```{r}
+grepl("(ha)+", c("ha", "haha", "hahaha", "h"))
+# TRUE TRUE TRUE FALSE — "ha" repeated one or more times
+```
+
+**2. Capture groups** — remember what was matched, reuse in `gsub()`:
+
+`\\1` refers to what group 1 captured, `\\2` to group 2, etc.
+
+```{r}
+x <- c("falciparum_PF001", "vivax_PV002")
+
+gsub("(\\w+)_(\\w+)", "\\2-\\1", x)
+# "PF001-falciparum"  "PV002-vivax"
+# group 1 = species name, group 2 = sample ID — swapped with \\2-\\1
+```
+
+## Practical Examples
+
+**1. Validate sample IDs** — must be 2 uppercase letters + 3 digits:
+
+```{r}
+ids <- c("PF001", "pf001", "PF01", "PF0012", "XX999")
+grepl("^[A-Z]{2}\\d{3}$", ids)
+# TRUE FALSE FALSE FALSE TRUE
+```
+
+**2. Find gene names in lab notes:**
+
+```{r}
+notes <- c("deletion of pfhrp2 confirmed", "pfhrp3 intact", "no deletion found")
+grepl("pfhrp[23]", notes)
+# TRUE  TRUE  FALSE
+
+grep("pfhrp[23]", notes, value = TRUE)
+# "deletion of pfhrp2 confirmed"  "pfhrp3 intact"
+```
+
+**3. Normalize messy lab result entries:**
+
+```{r}
+results <- c("  Positive ", "NEGATIVE", "pos.", "Neg")
+
+results <- tolower(trimws(results))  # lowercase + strip whitespace
+results <- gsub("[^a-z]", "", results)  # remove non-letter characters
+results
+# "positive" "negative" "pos" "neg"
+```
+
+**4. Reformat IDs by inserting a separator:**
+
+```{r}
+ids <- c("PF001", "PF002", "PF003")
+gsub("(PF)(\\d+)", "\\1-\\2", ids)
+# "PF-001"  "PF-002"  "PF-003"
+```
+
+------------------------------------------------------------------------
+
+## Part 4 — Summary Cheat Sheet
+
+## Base R String Functions
+
+```{r}
+#| echo: false
+#| eval: false
+# Reference table — see rendered cheat sheet below
+```
+
+::: panel-tabset
+### String Functions
+
+| Function | Purpose | Key Arguments | Example |
+|-----------------|-----------------|-----------------------|-----------------|
+| `nchar(x)` | Count characters | — | `nchar("pfhrp2")` → `6` |
+| `paste(...)` | Combine strings | `sep`, `collapse` | `paste("a","b",sep="-")` → `"a-b"` |
+| `paste0(...)` | Combine (no space) | `collapse` | `paste0("PF",1)` → `"PF1"` |
+| `substr(x, start, stop)` | Extract substring | `start`, `stop` | `substr("PF001",3,5)` → `"001"` |
+| `toupper(x)` | Convert to uppercase | — | `toupper("pfhrp2")` → `"PFHRP2"` |
+| `tolower(x)` | Convert to lowercase | — | `tolower("HRP2")` → `"hrp2"` |
+| `trimws(x)` | Remove whitespace | `which` (`"both"`, `"left"`, `"right"`) | `trimws(" pos ")` → `"pos"` |
+| `strsplit(x, split)` | Split into pieces | `split` (can be regex) | `strsplit("a;b",";")[[1]]` → `c("a","b")` |
+| `grepl(pattern, x)` | Logical match test | `ignore.case` | `grepl("pos","positive")` → `TRUE` |
+| `grep(pattern, x)` | Indices of matches | `value`, `ignore.case` | `grep("pos", x)` → positions |
+| `sub(pattern, repl, x)` | Replace first match | `ignore.case` | `sub("a","A","banana")` → `"bAnana"` |
+| `gsub(pattern, repl, x)` | Replace all matches | `ignore.case` | `gsub("a","A","banana")` → `"bAnAnA"` |
+| `sprintf(fmt, ...)` | Format strings | `fmt` | `sprintf("%.2f", 3.1)` → `"3.10"` |
+| `startsWith(x, prefix)` | Test string start | `prefix` | `startsWith("PF001","PF")` → `TRUE` |
+| `endsWith(x, suffix)` | Test string end | `suffix` | `endsWith("PF001","01")` → `TRUE` |
+| `chartr(old, new, x)` | Replace characters | `old`, `new` | `chartr("aeiou","AEIOU","hello")` |
+| `format(x)` | Format for display | `width`, `justify` | `format(3.1,nsmall=2)` → `"3.10"` |
+
+### Regex Syntax
+
+| Pattern  | Meaning                       | Example Match                      |
+|----------|-------------------------------|------------------------------------|
+| `abc`    | Literal characters            | `"abc"` in `"abcdef"`              |
+| `.`      | Any single character          | `"P.003"` matches `"PF003"`        |
+| `\\.`    | Literal dot                   | `"3\\.14"` matches `"3.14"` only   |
+| `[abc]`  | Any of a, b, c                | `"[PX]F"` matches `"PF"` or `"XF"` |
+| `[^abc]` | Anything except a, b, c       | `"[^0-9]"` matches non-digits      |
+| `[a-z]`  | Range: any lowercase letter   | —                                  |
+| `[A-Z]`  | Range: any uppercase letter   | —                                  |
+| `[0-9]`  | Range: any digit              | —                                  |
+| `\\d`    | Any digit                     | `"\\d+"` matches `"123"`           |
+| `\\D`    | Any non-digit                 | —                                  |
+| `\\w`    | Word character `[a-zA-Z0-9_]` | —                                  |
+| `\\W`    | Non-word character            | —                                  |
+| `\\s`    | Whitespace                    | `"\\s+"` matches spaces/tabs       |
+| `\\S`    | Non-whitespace                | —                                  |
+| `^`      | Start of string               | `"^PF"` — must start with PF       |
+| `$`      | End of string                 | `"\\d$"` — must end with digit     |
+| `?`      | 0 or 1 (optional)             | `"colou?r"` → color or colour      |
+| `*`      | 0 or more                     | `"ab*"` → a, ab, abb, ...          |
+| `+`      | 1 or more                     | `"ab+"` → ab, abb, ...             |
+| `{n}`    | Exactly n                     | `"\\d{3}"` → exactly 3 digits      |
+| `{n,m}`  | Between n and m               | `"\\d{2,4}"` → 2 to 4 digits       |
+| `a\|b`   | a OR b                        | `"pos\|neg"` matches either        |
+| `(abc)`  | Capture group                 | `"(\\w+)_(\\w+)"`                  |
+| `\\1`    | Backreference to group 1      | Used in `gsub()` replacement       |
+
+### Common Patterns
+
+| Task | Pattern | Code |
+|---------------------|-------------------------------|---------------------|
+| Exact match only | `^pattern$` | `grepl("^positive$", x)` |
+| Starts with | `^prefix` | `grepl("^PF", x)` |
+| Ends with | `suffix$` | `grepl("001$", x)` |
+| Contains digits | `\\d` | `grepl("\\d", x)` |
+| Only digits | `^\\d+$` | `grepl("^\\d+$", x)` |
+| Only letters | `^[a-zA-Z]+$` | `grepl("^[a-zA-Z]+$", x)` |
+| Sample ID format (2 letters + 3 digits) | `^[A-Z]{2}\\d{3}$` | `grepl("^[A-Z]{2}\\d{3}$", x)` |
+| Remove whitespace | `\\s+` | `gsub("\\s+", "", x)` |
+| Remove non-alphanumeric | `[^a-zA-Z0-9]` | `gsub("[^a-zA-Z0-9]", "", x)` |
+| One of several values | `^(val1\|val2)$` | `grepl("^(pos\|neg)$", x)` |
+| IP-like pattern | `\\d+\\.\\d+` | `grepl("\\d+\\.\\d+", x)` |
+| Empty string | `^$` | `grepl("^$", x)` |
+| Non-empty string | `.+` | `grepl(".+", x)` |
+
+### Key Distinctions
+
+| Comparison | Details |
+|---------------------------------------|---------------------------------|
+| `length()` vs `nchar()` | `length()` counts vector elements; `nchar()` counts characters within each string |
+| `print()` vs `cat()` | `print()` shows R representation (with quotes); `cat()` renders actual output |
+| `sep` vs `collapse` in `paste()` | `sep` between arguments; `collapse` squishes a vector into one string |
+| `sub()` vs `gsub()` | `sub()` replaces first match; `gsub()` replaces all matches |
+| `grep()` vs `grepl()` | `grep()` returns positions/values; `grepl()` returns TRUE/FALSE |
+| `^` inside `[ ]` vs outside | Inside `[^abc]` = negation; outside `^abc` = start of string anchor |
+| `\\.` vs `.` | `\\.` = literal dot; `.` = any character |
+| `\\1` in replacement | Backreference to capture group 1 — use in `gsub()` replacement string |
+:::
+
+------------------------------------------------------------------------
+
+::: {.callout-note appearance="simple"}
+**Next step:** Once base R string manipulation and regex feel natural, `stringr` from the tidyverse offers a consistent naming convention (`str_*`), cleaner argument order, and better handling of `NA` values — all built on the same regex engine you have learned here.
+:::
+
+------------------------------------------------------------------------
+
+*Document generated with Quarto. All examples use base R — no packages required.*

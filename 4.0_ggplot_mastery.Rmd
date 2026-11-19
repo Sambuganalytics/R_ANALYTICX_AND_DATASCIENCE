@@ -1,0 +1,661 @@
+---
+title: "Plots Notes"
+author: "SumbugAnalytics"
+date: "2026-03-18"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Understanding the ggplot:
+
+The ggplot system is base don the idea that :\
+A plot is built by a combination of independent components (like a sentence in a language):\
+Every plot is made of :
+
+- Data
+
+- Aesthetics(aes)
+
+- Geometry (geom\_\*)
+
+- Statistical transformation(stat)
+
+- Scales
+
+- Themes
+
+  Think of ggplot as layers of transparent sheets.
+
+```{r}
+# Let's load the required libraries
+library(tidyverse)
+library(ggplot2)
+library(ggsignif)
+library(scales)
+```
+
+### Let's load the insurance data set
+
+```{r}
+df <- read_csv("insurance.csv",
+               show_col_types = FALSE)
+cat("Data Loaded Successfully")
+```
+
+```{r}
+utils::head(df,3)
+```
+
+**Note** :\
+ggplot automatically groups data when a categorical variable is mapped to an aesthetic like color, shape, or linetype.
+
+```{r fig.dpi=300, fig.width=10, fig.height=5}
+ggplot(
+  data = df,
+  mapping = aes(x = bmi, y = charges)
+)+
+  geom_point(mapping = aes(color = smoker))+
+  labs(
+    x = "bmi(kg/m^2)",
+    y = "Charges($)",
+    title = "Relationship between bmi and insurance charges",
+    color = "Smoker Status"
+  )+
+  theme_bw()
+```
+
+### **Global Mapping Vs Local mapping :**
+
+variables can be mapped to aesthetics locally or globally: When you map a variable to an aesthetic in the ggplot() function, that applies globally. it means any other layer added assumes those set featutures or mapping in ggplot.\
+For instance, we could map cyl(cylinders) to color in mtcars globally in ggplot aes() or locally in aes() in geom_point:
+
+```{r fig.dpi = 300, fig.width= 10, fig.height = 5}
+# local mapping of color and global mapping of x and y axis
+ggplot(mtcars,
+       aes(x = wt, y = mpg)
+       )+
+  geom_point(aes(color = cyl))+ # this applies only to geom_point
+  theme_bw()
+```
+
+### Settings and Mapping:
+
+There is a difference between settings and Mapping:Mapping connects variables in the data set to visual aesthetics,whiles settings assigns visual properties independent of the data.\
+.Mapping are usually declared in aesthetics but settings are not.\
+**NB: ggplot function itself doesn't accept color settings: You can only use aesthetics for mapping to variables: If you want one unique color be set, use it in any of geom\_\* function**
+
+```{r fig.dpi = 300, fig.width= 10, fig.height = 5}
+# setting color : You see how every point is blue
+ggplot(mtcars,
+       aes(x = wt, y = mpg)
+       )+
+  geom_point(color = "blue") # color is set to one color: blue
+
+```
+
+### Let's add another layer:
+
+```{r fig.dpi = 300, fig.width= 10, fig.height = 5}
+ggplot(
+  mtcars, aes(wt,mpg)
+)+
+  geom_point(
+    aes( color = factor(cyl))
+    )+
+  geom_smooth(method = "lm",
+              formula = y ~ x, 
+              se = FALSE)
+```
+
+**Local vs Global Aesthetic Definitions:\
+Local definition**
+
+colors are only available for geom_point(). Any added layer will not have these colors and x, y mappings\
+declared on in geom_point()
+
+```{r fig.dpi = 300, fig.width= 10, fig.height = 5}
+# let's define the data globally in ggplot and aesthetics locally in geom_point()
+ggplot(mtcars)+
+  geom_point(aes(wt,mpg,color = cyl))
+```
+
+**Global definition of aesthetics and data:**
+
+You by now see that the two plots are the same. This sis because aesthetics can be defined both globally or locally. You see that geom_point() inherits the coloring of point based on cyl from ggplot() aesthetics
+
+```{r fig.dpi = 300, fig.width= 10, fig.height = 5}
+# let's define the data and aesthetics all in ggplot
+ggplot(mtcars,
+       aes(wt,mpg, color = cyl))+
+  geom_point()
+
+```
+
+#### **Aesthetic inheritance and overriding:**
+
+Aesthetics declared globally can be overridden with settings: Here we globally map our x and y variables in ggplot(). And then geom_point() inherits the coloring and x, y mapping. So points get colored by cyl as mapped in ggplot().\
+Also we add a first geom_smooth which equally inherits the x,y aesthetics but with color, settings it override the globally mapped color = cyl.\
+We add yet another geom_smooth() layer and that one is allowed to inherit all global mappings.
+
+```{r fig.dpi = 300, fig.height = 5, fig.width =10}
+# Let's demonstrate something more complex
+ggplot(
+  mtcars,
+  aes(hp,mpg,color = factor(cyl))
+  )+
+geom_point()+
+  geom_smooth(
+    color = "black",
+    method = "lm",
+    formula = y~x,
+    se = FALSE
+  )+
+  geom_smooth(
+    method = "lm",
+    formula = y~x,
+    se = FALSE
+  )+
+  labs(
+    title = "inheriting and overidding global mapping"
+  )
+ 
+```
+
+### Facet Wrapping:
+
+Facet wrapping helps in splitting figures based on categories: Let's do a scatter plot of hp over mpg and then facet wrap by cyl: Color becomes redundant when faceting by the same variable, because each panel already represents a single category. Removing color from geom_point() won't make any difference
+
+```{r fig.dpi = 300, fig.height= 5, fig.width = 10}
+ggplot(
+  mtcars,
+  aes(hp,mpg)
+)+
+  geom_point(
+    aes(color = factor(cyl))
+  )+
+  facet_wrap(~cyl)
+```
+
+**Let's take another example:**
+
+```{r fig.dpi = 300, fig.height= 5, fig.width = 10}
+ggplot(
+  mtcars,
+  aes(wt,mpg)
+)+
+  geom_point(
+    aes(color = factor(cyl))
+  )+
+  geom_smooth(
+    color = "lightblue",
+    method = "lm",
+    formula = y~x,
+    se = FALSE
+  )+
+  facet_wrap(~gear, nrow =1) # you can use nrow to specify number of rows you want
+```
+
+### Facet Grid:
+
+Facet grid is used to split the figure into multiple small figures based on two variables. Unlike facet wrap which takes only one variable, facet grid works on two variables:
+
+```{r fig.dpi = 300, fig.height = 5,fig.width = 10}
+ggplot(
+  df,
+  aes(x= bmi, y = charges)
+)+
+  geom_point()+
+  geom_smooth(
+    color = "lightpink",
+    method = "lm",
+    formula = y~x,
+    se = FALSE
+  )+
+  facet_grid(sex~smoker) # this forms a grid with sex as rows and smoker as column
+  
+```
+
+### More Customization:
+
+### Labels and Themes:
+
+labs() : This controls what text appears on the graph: axis titles, shapes, color and size titles, graph title, subtitle, caption and many more properties.
+
+theme() : This is for styling, it controls where these labels should be positioned, orientation,coloring, font size, font style and so on.\
+Let's work on some examples: We are going a little deeper this time
+
+```{r fig.dpi=300, fig.width=10, fig.height=5}
+ggplot(
+  df,
+  aes(bmi,charges,color = smoker)
+)+
+  geom_point()+
+  geom_smooth(
+    method = "lm",
+    formula = y~x,
+    se = FALSE
+  )+
+  labs(
+     x = "bmi(kg/m^2)",
+     y = "Charges($)",
+     color = "Smoker",
+     title = "Relationship between bmi and insurance charge",
+     subtitle = "Relationship stratified by smoker status",
+     caption = "Source : SambugAnalytics"
+  )+
+  theme_bw()+
+  theme(
+    text = element_text(family = 'serif', size =13),
+    plot.title = element_text(size = 14, face = "bold", hjust = 0),
+    plot.subtitle = element_text(size = 12, color = "grey40"),
+    axis.title = element_text(size =12, face = "bold"),
+    axis.text = element_text(size = 11),
+    legend.position = 'right',
+    legend.title = element_text(face = 'bold', size = 12)
+  )
+
+```
+
+### More customization of plots : Bar and Pie Charts
+
+#### Basic bar chart:
+
+Let's take a look at the distribution of regions in the insurance data set: Let's start with a basic bar chart and then we progress:
+
+```{r fig.dpi = 300, fig.width =10, fig.height = 5}
+ggplot(
+  df, aes(x = region)
+)+
+  geom_bar(
+    fill = "lightblue", # color to fill bars
+    width = 0.5,        # width of bar
+    )+
+  labs(
+    title = "Distribution of region",
+    x = "Region",
+    y = "Count",
+    subtitle = "Distribution of region by gender",
+    caption = "SambugAnalytics(World bank Data)"
+  )+
+  theme_bw()
+  
+```
+
+#### Grouped_bar chart : Let's see the distribution of sex across the regions:
+
+Here two most important things matter.\
+1. Fill : Determines how the bars are filled , you can map the bars to a fill in aesthetics\
+2.Position : Determines how the bars are presented, either stacked, grouped or overlap\
+3. coord_flip() : This is added like a layer to create a horizontal bar chart\
+There different positions : **dodge, stack, fill, identify**
+
+```{r fig.dpi = 300, fig.width = 10, fig.height =5}
+# Here is a well customized grouped bar
+ggplot(
+  df, aes(x = region, fill = sex)
+)+
+  geom_bar(
+    width = 0.5,
+    position = "dodge" # position each sex bar side by side(group)
+    )+
+  # adding bar labels
+  geom_text(
+    stat = "count", # specify the statistics used in geom_bar: that is count
+    aes(label = after_stat(count)), #set's the internal count variable as bar label
+    position = position_dodge(width = 0.5), # position must match geom_bar position
+    vjust = -0.4 # vertical adjustment
+  )+
+  labs(
+    title = "Distribution of region",
+    x = "Region",
+    y = "Count",
+    subtitle = "Distribution of region by gender",
+    caption = "SambugAnalytics(World bank Data)"
+  )+
+  theme_bw()+
+  theme(
+    text = element_text(family = "serif",size =13),# global text style
+    plot.title = element_text(face = "bold",hjust = 0), 
+    axis.title.x = element_text(size =11, face = "bold"),# styles only x axis title
+    axis.title.y = element_text(face = "bold",size = 11),
+    axis.text = element_text(face = "bold")
+  )
+```
+
+**Geom_col() :**
+
+You can equally use this for bar chart but used only when you have summarized the data already.\
+In that case you already have your computed count, y already. geom_bar is not needed to do the computation. it is just like setting stat to identity in geom_bar.
+
+```{r}
+# Grouping data for plotting
+grouped <- df |> 
+  count(region,sex)
+grouped
+```
+
+```{r fig.dpi = 300, fig.width = 10, fig.height =5}
+# using geom_col
+ggplot(
+  grouped, aes(x = region,y =n, fill = sex)
+)+
+  geom_col(
+    width = 0.5,
+    position = "dodge" # position each sex bar side by side(group)
+    )+
+  # adding bar labels
+  geom_text(
+    aes(label = n), # sets the count as bar label
+    position = position_dodge(width = 0.5), # position must match geom_bar position
+    vjust = -0.4 # vertical adjustment
+  )+
+  labs(
+    title = "Distribution of region",
+    x = "Region",
+    y = "Count",
+    subtitle = "Distribution of region by gender",
+    caption = "SambugAnalytics(World bank Data)"
+  )+
+  theme_bw()+
+  theme(
+    text = element_text(family = "serif",size =13),# global text style
+    plot.title = element_text(face = "bold",hjust = 0), 
+    axis.title.x = element_text(size =11, face = "bold"),# styles only x axis title
+    axis.title.y = element_text(face = "bold",size = 11),
+    axis.text = element_text(face = "bold")
+  )
+```
+
+**Stacked Bar:**
+
+The only thing we are going to change is the position: we are going to set it to 'stack'
+
+```{r fig.dpi = 300, fig.width = 10, fig.height =5}
+# Here is a well customized grouped bar
+ggplot(
+  df, aes(x = region)
+)+
+  geom_bar(
+    aes(fill = sex), # fills each main bar by the variable sex
+    width = 0.5,
+    position = "stack" # position each sex bar side by side(group)
+    )+
+  labs(
+    title = "Distribution of region",
+    x = "Region",
+    y = "Count",
+    subtitle = "Distribution of region by gender",
+    caption = "SambugAnalytics(World bank Data)"
+  )+
+  theme_bw()+
+  theme(
+    text = element_text(family = "serif",size =13),# global text style
+    plot.title = element_text(face = "bold",hjust = 0),
+    plot.subtitle = element_text(color = "grey"),
+    axis.title.x = element_text(size =11, face = "bold"),# styles only x axis title
+    axis.title.y = element_text(face = "bold",size = 11),
+    axis.text = element_text(face = "bold")
+  )
+
+```
+
+\*\*Say we wanted percentages as our labels in the grouped bar (geom_col or geom_bar)\*\* I am going to use the grouped data:
+
+```{r}
+grouped_per <- grouped |> 
+  mutate(
+    percent = round((n/sum(n))*100,1)
+  )
+grouped_per
+```
+
+```{r fig.dpi = 300, fig.width =10, fig.height = 5}
+# let' do the plotting now 
+ggplot(
+  grouped_per,
+  aes(x = region, y = percent, fill = sex)
+)+
+  geom_col(
+    position = "dodge",
+    width = 0.5
+  )+
+  geom_text(
+    aes(label = paste0(percent,"%")),# paste0()combines strings without a space btn
+    position = position_dodge(width =0.5),
+    vjust = -0.4
+  )+ 
+  labs(
+    title = "Distribution of region",
+    x = "Region",
+    y = "Percent",
+    subtitle = "Distribution of region by gender",
+    caption = "SambugAnalytics(World bank Data)"
+    )+
+  theme_bw()+
+   theme(
+    text = element_text(family = "serif",size =13),# global text style
+    plot.title = element_text(face = "bold",hjust = 0), 
+    axis.title.x = element_text(size =11, face = "bold"),# styles only x axis title
+    axis.title.y = element_text(face = "bold",size = 11),
+    axis.text = element_text(face = "bold")
+  )
+  
+```
+
+### **Box Plot:**
+
+```{r fig.dpi = 300, fig.width = 10, fig.height = 5}
+library(ggplot2)
+
+ggplot(df, aes(x = region, y = charges)) +
+  geom_boxplot(
+    aes( fill = smoker),
+    position = position_dodge(width=0.3), # controls sapce between subplots
+    width = 0.3, # controls size of boxplot
+    staplewidth = 0.4, # controls cap of whiskers
+    linewidth = 1,
+    alpha = 0.5,
+    coef = 1.5,
+    median.linewidth = 1, # controls thickness of median line
+    outlier.color = "red",
+    outlier.size = 1.5
+  ) +
+  labs(
+    title = "Distribution of Insurance Charges by Smoking Status",
+    x = "Region",
+    y = "Charges",
+    caption = "Source: SambugAnalytics"
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "right",
+    text = element_text(family= "serif",size = 12),
+    axis.title = element_text(face = 'bold')
+  )
+```
+
+### **Adding Significance Levels to Box plots**
+
+```{r fig.dpi = 300, fig.width = 10, fig.height =5}
+ggplot(
+  df,
+  aes(x=region, y = charges)
+)+
+  geom_boxplot(
+    fill = "white",
+    width = 0.2,
+    median.linewidth = 1,
+    staplewidth = 0.5,
+    alpha =1,
+    color = 'black',
+    linewidth= 1,
+    coef = 1.5,
+    outlier.color = 'black',
+    outlier.size = 1.5
+  )+
+  coord_cartesian(ylim = c(0,80000))+ # setting  y limit
+  geom_signif(
+    comparisons = list(c("northeast","northwest"),c('southeast','southwest')),
+    annotations = c("NS","NS"),
+    y_position = 70000
+  )+
+  labs(
+    title = "Comparison of insurance charges by region",
+    caption = "Source:SambugAnalytics",
+    x = "Region",
+    y = "Insurance charges( $ )"
+  )+
+  theme_bw()+
+  theme(
+    text = element_text(family = "serif",size =13),
+    plot.title = element_text(face = "bold"),
+    axis.title = element_text(face = "bold"),
+    axis.text = element_text(face = "bold"),
+    plot.caption = element_text(face = "bold")
+  )
+  
+```
+
+**Three ways to control axis limits:**
+
+1.  using xlim() and ylim()
+2.  using coord_cartesian(xlim = c(x1,x2), ylim= c(y1,y2)
+3.  scale_x_continous(limit = c(x1,x2, breaks = seq(2,20,2) and scale_y_contionous(limit =c(y1,y2), breaks = seq(2,18,2))
+
+### [**Distribution plots: Histogram and Density Plots**]{.underline}
+
+#### Histogram:
+
+```{r fig.dpi= 300, fig.height= 7, fig.width= 14}
+# let's look at the distribution of bmi in our study participants 
+bw <- (max(df$charges) - min(df$charges)) / 30
+ggplot(
+  df,
+  aes(x = charges)
+)+
+  geom_histogram(
+    aes(fill = smoker),# showing distribution by smoker status
+    bins = 30,
+    color = "white",
+    binwidth = bw # you can use bins or binwidth but not both
+      )+
+  scale_y_continuous(limits = c(0,200))+ # controls y limit
+  scale_x_continuous(
+    breaks = seq(min(df$charges),
+                 max(df$charges), by = bw), # controls xlimit plus break
+    labels = scales::comma
+    )+
+  labs(
+    x = "Charges ranges",
+    y = "Count",
+    title = "Distribution of charges across participants"
+  )+
+  theme_bw()+
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1),
+    axis.text = element_text(face = "bold")
+  )
+```
+
+**A quick note, you can pass on specific data manipulated to the geom aesthetics and it will override the data called in ggplot().**
+
+Let's look at an example with the mpg data: say we want to highlight 2seaters data points in a scatter plot of displ against hwy
+
+```{r}
+utils::head(mpg)
+```
+
+```{r fig.dpi = 300, fig.height= 7, fig.width= 14}
+# Now the graph
+ggplot(
+  mpg, aes(x=displ, y = hwy)
+)+
+  geom_point()+
+  geom_point(
+    data = mpg |> filter(class=="2seater"),
+    color = 'red', # colors the edges of the points 
+    size = 3,
+    shape = 21,
+    fill = "red"
+  )+
+  labs(
+    title = "Highlighting 2seater points",
+    caption = "Souce : Sambuganalytics"
+  )+
+  theme_bw()+
+  theme(
+    text = element_text(family = 'serif',size = 13),
+    axis.text = element_text(face = "bold"),
+    axis.title = element_text(face = "bold")
+  )
+```
+
+### **Density Plot:**
+
+Density plots are used together with histograms for distribution analysis:
+
+```{r fig.dpi = 300, fig.width=14, fig.height= 7}
+ggplot(
+  df,
+  aes(bmi)
+)+
+  geom_density(
+    color = 'black',
+    fill = "green", # fills in the area under the distribution 
+    alpha = 0.05  # controls color intensity of this geom elements
+  )+
+  labs(
+    title = 'Distribution of bmi',
+    caption = "Source: Sambuganalytics"
+  )+
+  theme_bw()
+```
+
+**We could show distribution by a category :**
+
+Say i want to show distribution of bmi across smoker status:
+
+```{r fig.dpi = 300, fig.width=14, fig.height= 7}
+ggplot(
+  df,
+  aes(bmi)
+)+
+  geom_density(
+    aes(color = smoker, fill = smoker),
+    alpha = 0.05  # controls color intensity of this geom elements
+  )+
+  labs(
+    title = "Distribution of bmi across smoker status",
+    caption = "Source : Sambuganalytics"
+  )+
+  theme_bw()
+```
+
+### **Let's use geom_density_ridge()**
+
+Note that unlike geom_density, geom_denstiy_ridge() requires x and y argument. x is the continous variable whose distribution is of interest and y is the category on which the distribution is split.
+
+```{r fig.dpi=300, fig.height= 5, fig.width = 10}
+# loading ggridges library
+library(ggridges)
+
+# Now our plot 
+ggplot(
+  df,
+  aes(x = bmi, y = smoker)
+)+
+  geom_density_ridges(
+    aes(fill = smoker),
+    alpha = 0.2,
+    show.legend = FALSE
+  )+
+  labs(
+    
+  )
+  theme_bw()
+```

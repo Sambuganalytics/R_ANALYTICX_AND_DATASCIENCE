@@ -1,0 +1,140 @@
+---
+title: "Functional Programming(Map,etc)"
+author: "SumbugAnalytics"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Module 1 : Functional Programming with Purr
+
+purrr provides a complete, consistent set of tools for working with functions and vectors. It replaces the conceptually fragmented \*apply family with a unified, type-safe interface. For researchers running the same analysis across many groups, files, or models, purrr is trans-formative.
+
+### The map() family
+
+#### **map()**
+
+Applies a function to each element of a list or vector and returns a list. Variants enforce output types, preventing silent coercions.
+
+```{r}
+# loading relevant libraries
+library(tidyverse)
+```
+
+### 1. Basic `map()` — Single Argument
+
+`map(x, f)` iterates over `x`, passing each element as the **first argument** to `f`. It always returns a **list**. x is the iterable and f is the function.
+
+```{r}
+# Say we want to map a function that squares each element in a vector
+elements = c(1:5)
+square <- map(elements, function(x) x^2)
+# let's unlist it to get flattened output
+unlist(square)
+```
+
+**We could have written this same function in a different way:**
+
+Tilde is a shorthand for function(.x) and after tilde is the expression on each item
+
+```{r}
+ squared <- map(elements, ~ .x^2)
+ unlist(squared)
+```
+
+#### **Map_dbl()**
+
+map_dbl() returns a numeric(double vector): Note that the output is a vector and doesn't need unlisting like the map that returns a list.
+
+```{r}
+# let's use the map to find the squares of elements: 
+map_dbl(elements, ~ .x^2)
+```
+
+```{r}
+# this is the modern way of writing anonymous function passed to map family
+map_dbl(elements, \(x) x^2)
+```
+
+```{r}
+# let's create a list of students information 
+students <- list(
+  score_1 = c(56,70,85,90),
+  score_2 = c(75,90,96,45)
+)
+```
+
+```{r}
+# you can pass the function in straight if it is not a custom function
+map_dbl(students,mean)
+```
+
+#### map_int()
+
+maps elements of an iterable to a function and returns integers: Let's do the same with the students data
+
+```{r}
+# let's use int for max: max returns an integer 
+map_int(
+  students, max
+)
+```
+
+#### map_chr()
+
+```{r}
+# maps an iterable to a function and returns a character 
+map_chr(c('Jane','Matt','Slicker'), ~ paste(":Sly1",.x)) 
+```
+
+### 2.0 map2() and pmap() — Multiple Inputs
+
+**`map2(x,y, f)`** iterates over **two** vectors x and y simultaneously, passing paired elements to f (function)
+
+```{r}
+# using lambda shorthand(tilde)
+prices  <- list(10, 20, 30)
+qty     <- list(3, 5, 2)
+map2_dbl(prices,qty, ~ .x * .y)
+```
+
+```{r}
+# could be written or run this way
+map2_dbl(prices,qty, \(x,y) x*y)
+```
+
+```{r}
+# we could equally write and name our function and later pass it to map2
+# this looks cleaner
+multiplier <-  function(a,b) a*b
+map2_dbl(prices,qty, multiplier)
+```
+
+```{r}
+first_names <- c("Alice", "Bob", "Carol")
+last_names  <- c("Smith", "Jones", "White")
+# let's combine the names 
+map2_chr(first_names,last_names, paste)
+```
+
+### `pmap()` — Multiple Arguments (p = parallel)
+
+`pmap(x,y,z,.. f)` takes a **list of vectors** and passes corresponding elements as arguments. Perfect for 3+ arguments.
+
+```{r}
+# Let's take this data and generate some radom normal distribution from it
+params_named <- list(
+  mean = c(0,  5, 10),
+  sd   = c(1,  2,  3),
+  n    = c(10, 10, 10)
+)
+# let's map this data to an rnorm function: it takes the argument, n, mean and sd
+pmap(params_named,rnorm)
+```
+
+```{r}
+pmap_dbl(params_named,\(mean,sd,n) mean*sd*n)
+```

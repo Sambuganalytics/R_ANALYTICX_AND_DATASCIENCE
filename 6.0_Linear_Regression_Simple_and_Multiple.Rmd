@@ -1,0 +1,644 @@
+---
+title: "Linear Regression in R"
+subtitle: "Part 1: simple and multiple regression with `lm()`"
+author: "Samuel Abugare"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    highlight: tango
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, message = FALSE, warning = FALSE,
+  fig.dpi = 300, fig.width = 10, fig.height = 5   # applies to every plot below
+)
+
+# writes a number as dollars inside the text (the backslash stops markdown reading $ as maths)
+usd <- function(x, accuracy = 1) scales::dollar(x, accuracy = accuracy, prefix = "\\$")
+```
+
+## 1. Background: what linear regression does
+
+Linear regression describes how the average value of a response changes as one or more predictors change. Here the response is `charges`, the yearly medical bill in dollars, and the predictors are things such as age, BMI and smoking. The model does not promise what one particular person will pay. It tells you what people with similar characteristics pay on average, and how sure it is about that figure.
+
+This is Part 1. It covers simple regression (one predictor), then multiple regression (several predictors). Part 2, the variable selection notebook, starts from the multiple regression model built at the end of this one.
+
+### 1.1 The model
+
+Take one predictor $X$ and a response $Y$. Simple linear regression says
+
+$$Y = \beta_0 + \beta_1 X + \varepsilon$$
+
+- $\beta_0$ is the **intercept**, the average of $Y$ when $X$ equals zero.
+- $\beta_1$ is the **slope**, the average change in $Y$ for a one-unit increase in $X$.
+- $\varepsilon$ is the **error term**. It holds everything that moves $Y$ but is missing from the model: other variables, measurement noise, plain chance.
+
+The error term is assumed to average zero and to have the same spread at every value of $X$, and the errors are assumed to be independent of each other. For the usual confidence intervals and p-values we also assume they follow a normal distribution.
+
+The $\beta$ values belong to the population, so nobody ever sees them. We estimate them from a sample and mark the estimates with a hat. When R prints a coefficient, it is $\hat\beta_0$ or $\hat\beta_1$.
+
+### 1.2 Least squares
+
+Once the line is fitted, each observation gets a prediction, $\hat y_i = \hat\beta_0 + \hat\beta_1 x_i$. The gap between what was observed and what the line predicted is the **residual**, $e_i = y_i - \hat y_i$. Least squares chooses the line that makes the residual sum of squares, $RSS = \sum e_i^2$, as small as it can be. With one predictor the answer has a closed form:
+
+$$\hat\beta_1 = \frac{\sum (x_i - \bar x)(y_i - \bar y)}{\sum (x_i - \bar x)^2} \qquad \hat\beta_0 = \bar y - \hat\beta_1 \bar x$$
+
+Errors and residuals are easy to confuse. The error $\varepsilon_i$ is the true gap between an observation and the true line, which stays hidden. The residual $e_i$ is the gap between the observation and the fitted line, which we can compute. Residuals are our only window onto the errors.
+
+### 1.3 Standard errors, confidence intervals and tests
+
+A different sample would give a different line. The **standard error** (SE) of a coefficient measures how much that estimate typically moves from sample to sample. For the slope,
+
+$$SE(\hat\beta_1) = \frac{\hat\sigma}{\sqrt{\sum (x_i - \bar x)^2}}$$
+
+where $\hat\sigma$ is the residual standard error, an estimate of the spread of $\varepsilon$. The SE shrinks when the noise is small, when the sample is large and when the values of $X$ are spread widely.
+
+A **confidence interval** turns the SE into a range of plausible values for the true coefficient:
+
+$$\hat\beta_j \pm t_{0.975,\; n-p-1} \times SE(\hat\beta_j)$$
+
+Here $n$ is the number of observations and $p$ the number of predictors. If you repeated the whole study many times, about 95% of the intervals built this way would contain the true coefficient.
+
+The **hypothesis test** on a coefficient asks whether the true value could be zero:
+
+$$H_0: \beta_j = 0 \qquad H_1: \beta_j \neq 0$$
+
+The test statistic is $t = \hat\beta_j / SE(\hat\beta_j)$. It is compared with a t distribution with $n-p-1$ degrees of freedom, and the p-value is the probability of a $t$ at least that extreme if $H_0$ were true. The test and the 95% interval always agree: zero sits outside the interval exactly when the p-value is below 0.05.
+
+### 1.4 How well does the model fit?
+
+Three numbers describe the model as a whole. The residual standard error (RSE) is the typical distance between an observation and the fitted line, in the units of $Y$. R-squared, $R^2 = 1 - RSS/TSS$, is the share of the variation in $Y$ that the model accounts for. The F-statistic tests whether the model beats one that has an intercept and nothing else.
+
+| Quantity | Where it appears in R | Question it answers |
+|-------------------|-------------------|----------------------------------|
+| Estimate | `summary(model)`, coefficients table | How large is the average change? |
+| Std. Error | `summary(model)`, coefficients table | How precisely is it estimated? |
+| t value and p-value | `summary(model)`, coefficients table | Could the true coefficient be zero? |
+| Confidence interval | `confint(model)` | Which values of the true coefficient are plausible? |
+| Residual standard error | bottom of `summary(model)` | How far off is a typical prediction? |
+| R-squared | bottom of `summary(model)` | How much of the variation is explained? |
+| F-statistic | bottom of `summary(model)` | Is the model better than no predictors at all? |
+
+## 2. Loading libraries and data
+
+```{r libraries}
+library(tidyverse)   # includes ggplot2, dplyr, readr
+library(gtsummary)   # tidy regression tables
+library(correlation) # correlation table
+
+# one plot style for the whole notebook
+theme_set(
+  theme_bw(base_size = 12, base_family = "serif") +
+    theme(axis.title = element_text(face = "bold"))
+)
+```
+
+```{r}
+# loading data:
+df <- read_csv("insurance.csv", show_col_types = FALSE)
+head(df, 5)
+dim(df)
+```
+
+The insurance data has `r nrow(df)` rows and `r ncol(df)` columns. The response is `charges`. The candidate predictors are `age`, `sex`, `bmi`, `children`, `smoker` and `region`, the same six that Part 2 works with.
+
+**The data were cleaned before this notebook was written, so the exploration below is short. The aim is to read regression output properly, not to profile the data.**
+
+### 2.1 A quick look at the data
+
+Correlation between the numeric variables and the target:
+
+```{r}
+df |>
+  select(where(is.numeric)) |>
+  correlation(method = "pearson") |>
+  filter(Parameter2 == "charges")
+```
+
+**Distribution of charges:**
+
+```{r}
+# distribution of charges
+ggplot(df, aes(x = charges)) +
+  geom_histogram(bins = 40, fill = "grey", colour = "white") +
+  labs(
+    title = "Distribution of Insurance Charges",
+    x = "Charges ($)", y = "Count",
+    caption = "@SambugAnalytics"
+  )
+```
+
+Most bills are small and a long tail runs off to the right. That skew matters later, when we talk about the error term.
+
+**Age and charges:**
+
+```{r}
+# scatter plot of age and charges
+ggplot(df, aes(x = age, y = charges)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x) +
+  labs(
+    title = "Relationship between Age and Insurance Charges",
+    x = "Age (years)", y = "Charges ($)",
+    caption = "@SambugAnalytics"
+  )
+```
+
+Charges rise with age, but the points do not scatter evenly around the line. They gather in separate bands. Section 4 shows what is behind that.
+
+## [3. Simple linear regression]{.underline}
+
+### 3.1 Fitting the model with `lm()`
+
+**Syntax of `lm()`** (see `?lm` for the full documentation):
+
+```         
+lm(formula, data, subset, weights, na.action, ...)
+```
+
+- `formula`: the model written as `response ~ predictor`. Read the tilde as "is modelled by".
+- `data`: the data frame that holds the variables named in the formula.
+
+Everything else keep its default here. We start with age as the only predictor.
+
+```{r}
+# Regressing charges on age:
+m_age <- lm(charges ~ age, data = df)
+summary(m_age)
+```
+
+### 3.2 Reading the output
+
+The `Call` block repeats the model we asked for, which is handy when a notebook holds several fits. The `Residuals` block gives the minimum, quartiles and maximum of $e_i$. A median far from zero or a maximum much larger than the minimum in absolute size hints at skewed errors, and here the maximum is 47829 against a minimum of -8059.
+
+The `Coefficients` table has one row per coefficient and four columns:
+
+| Column | Meaning |
+|-----------------------|-------------------------------------------------|
+| `Estimate` | $\hat\beta$, the fitted value of the coefficient |
+| `Std. Error` | $SE(\hat\beta)$, how much the estimate wobbles between samples |
+| `t value` | the estimate divided by its standard error |
+| `Pr(>|t|)` | the two-sided p-value for $H_0: \beta = 0$ |
+
+The last three lines report the residual standard error, $R^2$ with its adjusted version, and the F-test for the whole model. Each is unpacked below.
+
+```{r}
+b_age <- coef(summary(m_age))
+b_age
+```
+
+```{r}
+# minimum and maximum age
+cat("minimum age: ",min(df$age),"\n")
+cat("maximum age: ",max(df$age))
+```
+
+### 3.3 What the coefficients mean
+
+The intercept, It is the predicted charge for a person aged zero. The youngest person in the data is 18 years, so this number anchors the line and has no practical meaning of its own. Treating it as a newborn's bill would be extrapolating far outside the data.
+
+The slope carries the information. Each extra year of age(1 year) goes with an average increase of 257 dollars in yearly charges. The wording "goes with" is deliberate. The data show an association, and a regression cannot tell you that growing older causes the bill to rise.
+
+A quick check of what the line predicts at two ages one year apart:
+
+```{r}
+preds <- predict(m_age, newdata = data.frame(age = c(40, 41)))
+cat(preds,"\n")
+cat("Difference :", preds[2]-preds[1])
+
+```
+
+The two predictions differ by exactly the slope. That is all a slope is.
+
+### 3.4 The error term and the residuals
+
+Every observation sits some distance above or below the fitted line. Those distances are the residuals:
+
+```{r}
+# let's look at some actual charges and fitted(predicted charges on training data):
+tibble(
+  age      = df$age,
+  charges  = df$charges,
+  fitted   = fitted(m_age),
+  residual = resid(m_age)
+) |>
+  head(5)
+```
+
+A property of least squares is that the residuals add up to zero. The tiny number printed below is rounding error and nothing more:
+
+```{r}
+sum(resid(m_age))
+```
+
+The plot below makes the residuals visible. Forty people were drawn at random so the picture stays readable. Each red segment runs from the fitted line to an observed charge.
+
+```{r}
+# for reproducibility in the sliced sample, I set a random seed:
+set.seed(2026)
+df_small <- slice_sample(df, n = 40)
+df_small$fitted <- predict(m_age, newdata = df_small)
+
+# plots the regression line , the residual (distance between actual points and the fitted line)
+
+ggplot(df_small, aes(x = age, y = charges)) +
+  geom_abline(intercept = coef(m_age)[[1]], slope = coef(m_age)[[2]], colour = "blue") + 
+  geom_segment(aes(xend = age, yend = fitted), colour = "red") + 
+  geom_point() +
+  labs(
+    title = "Residuals: Distance from Each Observation to the Fitted Line",
+    x = "Age (years)", y = "Charges ($)",
+    caption = "@SambugAnalytics"
+  )
+```
+
+The size of a typical residual is the residual standard error. R stores it as `sigma`:
+
+```{r}
+cat("RSE:",sigma(m_age),"\n")
+cat("Mean charge: ",mean(df$charges))
+```
+
+A typical prediction from the age-only model misses by about 11560.31 usd, in a sample where the average bill is `usd 13270`. That is a lot of noise. Whatever $\varepsilon$ contains, age alone leaves most of it unexplained.
+
+### 3.5 Standard error: what it measures
+
+The standard error of the slope is `round(b_age["age", "Std. Error"], 2)`. The definition says it is the typical distance between $\hat\beta_1$ and the true slope across repeated samples, and we can watch that happen. The bootstrap draws 1000 samples of the same size from the data, with replacement, refits the model on each and keeps the slope.
+
+```{r}
+set.seed(2026)
+boot_slopes <- replicate(1000, {
+  resample <- slice_sample(df, prop = 1, replace = TRUE)
+  coef(lm(charges ~ age, data = resample))[["age"]]
+})
+
+# create a named vector of the std of boot_slopes and the model slope stderr:
+
+c(bootstrap_sd = sd(boot_slopes), model_se = b_age["age", "Std. Error"])
+```
+
+The spread of the 1000 slopes above is close to the SE that `summary()` reported from a formula, without any resampling.\
+Let's look at the distribution of the slopes across the 1000 bootstrap samples
+
+```{r}
+ggplot(tibble(slope = boot_slopes), aes(x = slope)) +
+  geom_histogram(bins = 30, fill = "grey", colour = "white") +
+  geom_vline(xintercept = coef(m_age)[["age"]], colour = "blue")+
+  # adding annotation for the slope
+  annotate(
+    "text", x = 275, y = 82, label = "Model's Estimated Slope = 257.7",
+    angle = 0, vjust = -0.5, family = "serif", size = 4
+  )+
+  labs(
+    title = "Slope of Age across 1000 Bootstrap Samples",
+    x = "Estimated slope ($ per year)", y = "Count",
+    caption = "@SambugAnalytics"
+  )
+```
+
+Note that I used the bootstrap here only to demonstrate the idea. In practice you read the standard error(SE) straight from the summary.
+
+### 3.6 Confidence intervals
+
+`confint()` returns a 95% interval for every coefficient.
+
+```{r}
+confint(m_age)
+```
+
+Let's do the same interval by hand, using the formula from section 1.3:
+
+```{r}
+est    <- b_age["age", "Estimate"]
+se     <- b_age["age", "Std. Error"]
+t_crit <- qt(0.975, df = df.residual(m_age))
+
+# the interval; roughly the same right?
+c(lower = est - t_crit * se, upper = est + t_crit * se)
+```
+
+The interval for the age slope runs from 213 dollars to 301 dollars per year. Values in that range are all compatible with the data. The interval is for the average effect of a year of age, not for the bill of any single person.\
+Asking for more confidence widens the interval, because a wider net catches the true value more often:
+
+```{r}
+confint(m_age, level = 0.99)
+```
+
+The percentile interval from the bootstrap lands close to the formula-based one too:
+
+```{r}
+quantile(boot_slopes, c(0.025, 0.975))
+```
+
+### 3.7 Hypothesis tests on the coefficients
+
+For the slope of age the hypotheses are
+
+$$H_0: \beta_1 = 0 \qquad H_1: \beta_1 \neq 0$$
+
+Under $H_0$ the true line is flat, so age says nothing about average charges. The statistic and p-value, computed by hand:
+
+```{r}
+t_stat <- est / se
+p_val  <- 2 * pt(-abs(t_stat), df = df.residual(m_age))
+
+c(t_value = t_stat, p_value = p_val)
+```
+
+These match the `age` row of the summary table, which is all `summary()` does. The slope sits about 11.45 standard errors from zero, so the data are very hard to square with a flat line. R prints `<2e-16` for the p-value because that is the smallest number it shows. The true value is not literally zero.
+
+The intercept row tests $H_0: \beta_0 = 0$, which asks whether the line passes through the origin. For age that question has no practical interest, and the p-value for the intercept can usually be skipped.
+
+One more fact connects the pieces. With a single predictor, the F-statistic at the bottom of the summary is the square of the t value:
+
+```{r}
+c(t_squared = b_age["age", "t value"]^2, F_statistic = summary(m_age)$fstatistic[["value"]])
+```
+
+A tiny p-value says the slope is probably not zero. It does not say the slope is large, and it does not say age predicts charges well. With `r nrow(df)` observations even a modest slope earns a very small p-value. The next section looks at how much age explains.
+
+### 3.8 How well does the model fit?
+
+```{r}
+# let's grab some model fit parameters:
+c(
+  r_squared     = summary(m_age)$r.squared,
+  adj_r_squared = summary(m_age)$adj.r.squared,
+  rse           = sigma(m_age)
+)
+```
+
+Age explains about 8.8 % of the variation in charges. The rest, over 90%, comes from something else. The F-test on the last line of the summary rejects the intercept-only model, so age does help, only not by much.
+
+### 3.9 Predictions and their two kinds of interval
+
+`predict()` gives fitted values for new data. It can attach two different intervals.
+
+```{r}
+# let's predict charges for some ages
+new_ages <- data.frame(age = c(20, 40, 60))
+
+predict(m_age, newdata = new_ages, interval = "confidence")
+cat("==================================================== \n")
+predict(m_age, newdata = new_ages, interval = "prediction")
+```
+
+The **confidence interval** covers the *average* charge for everyone of that age. The **prediction interval** covers the charge of one *new* person of that age. It has to include the scatter of $\varepsilon$ on top of the uncertainty in the line, so it is far wider. The lower limit is negative at all three ages, and no bill can be below zero. That is a sign the normal error assumption fits these data poorly, which I return to in the conclusion.
+
+### 3.10 A binary predictor
+
+A categorical predictor works through **dummy variables**. For `smoker`, R turns the text into a 0/1 column. The first level in alphabetical order, `no`, becomes the reference and `yes` gets the dummy.
+
+```{r simple-smoker}
+m_smoker <- lm(charges ~ smoker, data = df)
+summary(m_smoker)
+```
+
+The intercept is now the average charge for the reference group, non-smokers. The coefficient `smokeryes` is the *difference* in average charge between smokers and non-smokers. Compare with the group means:
+
+```{r}
+df |>
+  group_by(smoker) |>
+  summarise(mean_charges = mean(charges))
+```
+
+The intercept equals the non-smoker mean, and the coefficient equals the gap between the two means. The test on `smokeryes` asks whether that gap could be zero, which is the same as a two-sample t-test that assumes equal variances.
+
+Note the $R^2$ as well. Smoking alone explains 61.9% of the variation in charges, against 8.8% % for age. A variable can have a strong, clearly significant effect and still explain little (age), or explain a great deal (smoker). The p-value cannot tell the two apart.
+
+### 3.11 Tidy tables with gtsummary
+
+```{r}
+tbl_merge(
+  list(
+    tbl_regression(m_age) |> bold_p(),
+    tbl_regression(m_smoker) |> bold_p()
+  ),
+  tab_spanner = c("**Age**", "**Smoker**")
+)
+```
+
+## 4. Multiple linear regression
+
+Simple regression looks at one variable while ignoring all the others. Predictors rarely travel alone, and that is where the trouble starts.
+
+### 4.1 Why one predictor at a time can mislead
+
+Let's go back to the bands in the age plot. Colouring the points by smoker status shows most of where they come from.
+
+```{r}
+ggplot(df, aes(x = age, y = charges, color = smoker)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x) +
+  labs(
+    title = "Relationship between Age and Insurance Charges by Smoker Status",
+    x = "Age (years)", y = "Charges ($)",
+    caption = "@SambugAnalytics"
+  )
+```
+
+Smokers sit above non-smokers in most of the ages. The age slope inside each group looks similar, which is the picture that multiple regression is built to describe: one line per group, shifted up or down, with a shared slope.
+
+A second example shows the danger more sharply. Fit charges on sex alone:
+
+```{r}
+# simple model ; charges and sex
+m_sex <- lm(charges ~ sex, data = df)
+summary(m_sex)$coefficients
+confint(m_sex)
+```
+
+Men appear to cost 1387.17 more per year than women, and the interval stays clear of zero. Now look at how how smoking is distributed by sex:
+
+```{r}
+df |>
+  count(sex, smoker) |>
+  group_by(sex) |>
+  mutate(proportion = round(n / sum(n), 3))
+```
+
+A larger share of the men in this sample smoke. Some of the apparent gap between men and women is really a gap between smokers and non-smokers, with sex acting as a stand-in. A model with both variables can separate the two. I will come back to the sex coefficient once the full model is fitted.
+
+### 4.2 The model
+
+With $p$ predictors the model becomes
+
+$$Y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \dots + \beta_p X_p + \varepsilon$$
+
+Each $\beta_j$ is the average change in $Y$ for a one-unit increase in $X_j$ **while all the other predictors are held fixed**. In practice that means comparing two people who match on every other predictor in the model and differ only in $X_j$.
+
+Least squares still chooses the coefficients by minimizing the residual sum of squares. The solution is $\hat\beta = (X^\top X)^{-1} X^\top y$, which R computes for you. Standard errors, confidence intervals and t-tests keep the same form as in section 1.3, with $n - p - 1$ degrees of freedom. What changes is the meaning of the test: each t-test now asks whether $\beta_j$ could be zero *given that the other predictors are already in the model*.
+
+### 4.3 Two numeric predictors first
+
+In an R formula the plus sign means "include this term as well". It is not arithmetic.
+
+```{r}
+m_age_bmi <- lm(charges ~ age + bmi, data = df)
+summary(m_age_bmi)
+```
+
+The bmi coefficient is the average change in charges for one extra BMI unit among people of the same age. The age coefficient is the change per year among people with the same BMI. Compare both with the simple regressions:
+
+```{r}
+m_bmi <- lm(charges ~ bmi, data = df)
+
+tibble(
+  term      = c("age", "bmi"),
+  simple    = c(coef(m_age)[["age"]], coef(m_bmi)[["bmi"]]),
+  with_both = coef(m_age_bmi)[c("age", "bmi")]
+)
+```
+
+Both estimates moved. Age and BMI are correlated in the data, so in the simple models each variable also picks up a bit of the others effect. The correlation is small here, so the shift is modest. With more strongly related predictors the shift can be large, and it can even flip the sign.
+
+### 4.4 The full model
+
+Now all six candidate predictors go in. The name `full` is the same one my part two on multiple regression forward, backward and both methods uses.
+
+```{r}
+# I will show you a different syntax for writing the formular later in part 2
+
+full <- lm(charges ~ age + sex + bmi + children + smoker + region, data = df)
+summary(full)
+```
+
+The shortcut `charges ~ .` fits the same model, and I use it in Part 2. Writing the names out is clearer while you are learning with me.
+
+`region` has four levels, so it enters as three dummy variables, with `northeast` as the reference. Here are the first five rows of the design matrix that `lm()` built:
+
+```{r}
+# let see how the data look inside the model
+head(model.matrix(full), 5)
+```
+
+Each row has a 1 in at most one region column. A person from the northeast has zeros in all three.
+
+**Reading the coefficients.** For numeric predictors the coefficient is the change per unit with everything else fixed. Age adds about 256.9 per year, each unit of BMI about 339.2, and each child about 475.5 . For `smokeryes` the coefficient is the average gap between a smoker and an otherwise identical non-smoker, about 23848.5\
+The region coefficients are gaps relative to the northeast. A person in the southeast is predicted to pay -1035.0 less than a matched person in the northeast.
+
+**Back to sex.** In the simple model men cost 1387.172 more. In the full model the coefficient is -131.3, with a p-value of 0.693348 .\
+Once smoking and the other variables are held fixed, the gap between men and women disappears. The raw difference came mostly from men smoking more often in this sample.\
+**Intercept.** It is the predicted charge for someone with every numeric predictor at zero and every categorical predictor at its reference level: age 0, BMI 0, no children, non-smoker, northeast, female.\
+No such person exists, so the intercept is negative 11938.5 and carries no meaning beyond positioning the model.
+
+### 4.5 Standard errors and confidence intervals
+
+```{r}
+confint(full)
+```
+
+Interpretation of the confidence intervals is as before. Intervals are easier to compare in a plot. The intercept and the smoker coefficient are left out because their scale would flatten everything else. The smoker interval is in the table above.
+
+```{r}
+# let's show the coefficients/slopes in a more graphical wary
+broom::tidy(full, conf.int = TRUE) |>
+  filter(!term %in% c("(Intercept)", "smokeryes")) |>
+  ggplot(aes(x = estimate, y = reorder(term, estimate))) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high)) +
+  labs(
+    title = "Coefficients of the Full Model with 95% Confidence Intervals",
+    x = "Estimated effect on charges ($)", y = NULL,
+    caption = "@SambugAnalytics"
+  )
+```
+
+An interval that crosses the dashed line is the graphical version of a p-value above 0.05. Note that slopes whose range pass through zero also imply a flat line can fit the data, hence the parameter with that slope can at a point show no relationship/contribution to the response variable. Look closely for all slopes cross zero and check their corresponding p-values? Do you see something?
+
+### 4.6 Hypothesis tests in multiple regression
+
+There are three kinds of test in the output, and they answer different questions.
+
+The **t-test on one coefficient** has $H_0: \beta_j = 0$ with all other predictors in the model. The test on `bmi` asks whether BMI adds anything once age, sex, children, smoker and region are already there.
+
+The **overall F-test** at the bottom of the summary has $H_0: \beta_1 = \beta_2 = \dots = \beta_p = 0$. Rejecting it means at least one predictor is related to charges. The F-statistic is 500.8 with a p-value that R shows as below 2.2e-16, so the model as a whole clearly beats the intercept-only model.
+
+The third kind appears when a categorical variable has more than two levels. `Region` produced three t-tests, each comparing one region with the northeast(the reference region). None of them answers whether region matters at all. For that we need one joint test of $H_0: \beta_{northwest} = \beta_{southeast} = \beta_{southwest} = 0$. The function `drop1()` removes each term from the full model in turn and tests the loss:
+
+```{r}
+d1 <- drop1(full, test = "F")
+d1
+```
+
+Every variable gets exactly one row. Smoker, age, BMI and children are all strongly significant. `region` is borderline, with a p-value of 0.096221, and `sex` 0.1556 contributes nothing . The `AIC` column in this table is the quantity `step()` works with in Part 2.\
+A related function, `anova(full)`, also tests terms, but sequentially(when you choose that type), and the result for a term depends on the order in which the terms were written. `drop1()` does not have that problem.
+
+### 4.7 How well does the model fit?
+
+$R^2$ never goes down when a predictor is added, even if the predictor is pure noise. **Adjusted** $R^2$ corrects for that by penalising each extra term, so it can fall when a irrelevant variable enters the model. That makes it the better number for comparing models of different sizes.
+
+```{r}
+# let's buil a table for the comparison
+models <- list(
+  "age"                = m_age,
+  "smoker"             = m_smoker,
+  "age + bmi"          = m_age_bmi,
+  "all six predictors" = full
+)
+
+map_dfr(models, broom::glance, .id = "model") |>
+  select(model, r.squared, adj.r.squared, sigma, df.residual) |>
+  mutate(
+    r.squared     = round(r.squared, 3),
+    adj.r.squared = round(adj.r.squared, 3),
+    sigma         = round(sigma)
+  )
+```
+
+Moving from age alone to all six predictors lifts $R^2$ from about 8.9% to `75%`and cuts the typical error from 11560 to 6062. The gap between $R^2$ and adjusted $R^2$ is tiny, which suggests the weakest terms, `sex` and `region`, cost the model very little.
+
+### 4.8 Predictions from the full model
+
+Take two people who are the same in every way except that one smokes.
+
+```{r}
+# i am using a feature of replicating fields to match the length of the data:
+new_people <- data.frame(
+  age = 40, sex = "female", bmi = 28, children = 2,
+  smoker = c("no", "yes"), region = "northeast"
+)
+
+predict(full, newdata = new_people, interval = "confidence")
+cat("====================================================== \n")
+predict(full, newdata = new_people, interval = "prediction")
+```
+
+The two fitted values differ by exactly the `smokeryes` coefficient, because the model is additive and everything else is held fixed. The prediction intervals are much wider than the confidence intervals for the same reason as in the simple model, and the lower limit for the non-smoker is still negative.
+
+### 4.9 The final table
+
+```{r}
+# let's me show it with gtsumamry::tbl_regression
+tbl_regression(full) |>
+  bold_p()
+```
+
+## 5. Conclusion
+
+Simple regression gave each variable its own line, and the numbers were easy to read: an intercept, a slope, a standard error, an interval and a test. Multiple regression kept all of that and changed one thing, the meaning of "effect". Every coefficient in the full model is a comparison between people who match on the other predictors. That is why the sex coefficient lost its size and significance, why the standard errors fell, and why $R^2$ rose from under 8% to about 75%.
+
+A few cautions apply.
+
+- The assumptions of the error term were stated but not checked. The signs are not good. The median residual of the full model is -982.1 while the largest is 29992.8, so the errors are not symmetric, and the prediction intervals reached below zero. A transformation of `charges` or a different model may fit better.
+- The scatter plot in section 4.1 hints that the effect of BMI could differ between smokers and non-smokers. The additive model forces one BMI slope for everybody, and interactions are not covered here.
+- A significant coefficient means the data are hard to square with a true value of zero. It does not mean the variable causes the outcome, and it does not mean the variable is important for prediction.
+- Everything above was fitted and tested on the same data. The p-values and intervals are fair for a model chosen in advance.
+
+The full model contains `sex` and `region`, which contributed little. In part two you will get to see how forward, backward and mixed selection decide which variables to keep.
+
+### RESOURCES USED:
+
+Dataset:\
+<https://www.kaggle.com/datasets/mirichoi0218/insurance>?
+
+Lantz, B. (2019). Machine Learning with R: Expert Techniques for Predictive Modeling (3rd ed.). Packt Publishing.
+
+James, G., Witten, D., Hastie, T., & Tibshirani, R. (2021). An Introduction to Statistical Learning: With Applications in R (2nd ed.). Springer. <https://doi.org/10.1007/978-1-0716-1418-1>
+
+Morey, R. D., Hoekstra, R., Rouder, J. N., Lee, M. D., & Wagenmakers, E.-J. (2016). The fallacy of placing confidence in confidence intervals. Psychonomic Bulletin & Review, 23(1), 103–123. <https://doi.org/10.3758/s13423-015-0947-8>
