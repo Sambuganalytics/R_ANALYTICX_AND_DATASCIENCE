@@ -2,6 +2,7 @@
 title: "R_Refresher_Training"
 author: "SumbugAnalytics"
 date: "2026-02-26"
+format: gfm
 output: github_document
 ---
 
@@ -74,6 +75,10 @@ A vector is a sequence of items of the same type: vector items can be coerced to
 g <- c("Joy","Steph","Mimmy")
 h <- c(1,2,3,4,5)
 l <- c(TRUE,FALSE,TRUE, FALSE)
+#printing the vectors we have created: cat is used for outputing/printing
+cat("g ---> ", g ,"\n")
+cat("h ---> ", h ,"\n")
+cat("l ---> ", l)
 ```
 
 ### **Order of Coercion of data types in a vector in R:**
@@ -125,7 +130,6 @@ operating on vectors of different length, the shorter one is recycled into the l
 a <- c(1,2,3,4)
 b <- c(10,20)
 a + b 
-
 ```
 
 ### Vector Arithmetic:
@@ -167,7 +171,7 @@ scores[scores>2] # filters or slices for scores greater than 2
 Unlike vectors, lists can hold elements of different types, including other lists. They are ideal for storing complex, heterogeneous data.
 
 ```{r}
-# list can hold different items without coercing them into one type
+#list can hold different items without coercing them into one type
 student <- list(
   name = c('Erica','Matt'),
   score = c(11,2),
@@ -213,7 +217,6 @@ mx_row = matrix((1:6),nrow = 2, ncol = 3,
                 dimnames = list(c("R1","R2"),c("Col1","Col2","Col3"))
                 )
 mx_row
-
 ```
 
 ```{r}
@@ -223,7 +226,6 @@ mx_col <- matrix((1:6),nrow = 2, ncol = 3,
                 dimnames = list(c("R1","R2"),c("Col1","Col2","Col3"))
                 )
 mx_col
-
 ```
 
 ### [Matrix Operation]{.underline}
@@ -244,6 +246,7 @@ mx_col %*% mby2
 ```
 
 ```{r}
+# creating matrix mx_col
 mx_col <- matrix(c(2,4,7,8,3,4,1,7,-2), ncol = 3, nrow = 3)
 mx_col
 ```
@@ -693,7 +696,8 @@ sum(is.na(df2))
 
 ```{r}
 # let's check the framingham dataset
-framingham <- read.csv("D:/MACHINE LEARNING/framingham_heart_study.csv")
+framingham <- read.csv(
+"D:/MACHINE_LEARNING/Framingham_project/framingham_heart_study.csv")
 head(framingham,3)
 ```
 
@@ -708,6 +712,11 @@ count_na <- colSums(is.na(framingham))
 data.frame(
   missing = count_na
 )
+```
+
+```{r}
+# let's load the full tidyverse for more work
+library(tidyverse)
 ```
 
 ```{r}
