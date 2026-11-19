@@ -1,4 +1,5 @@
-.R
-.csv
-.txt
-.Rhistory
+#exclude files ending in:
+*.R
+*.csv
+*.txt
+*.Rhistory
