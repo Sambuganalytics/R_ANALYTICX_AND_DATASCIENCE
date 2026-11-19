@@ -2,4 +2,8 @@
 *.R
 *.csv
 *.txt
+<<<<<<< HEAD
 *.Rhistory
+=======
+*.Rhistory
+>>>>>>> 3f9c4fe554cddb5c82f42de02fb392e9f4479437
