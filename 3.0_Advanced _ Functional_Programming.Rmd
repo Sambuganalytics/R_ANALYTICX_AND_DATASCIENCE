@@ -2,7 +2,8 @@
 title: "Functional Programming(Map,etc)"
 author: "SumbugAnalytics"
 date: "`r Sys.Date()`"
-output: html_document
+format: gfm
+output: github_document
 ---
 
 ```{r setup, include=FALSE}

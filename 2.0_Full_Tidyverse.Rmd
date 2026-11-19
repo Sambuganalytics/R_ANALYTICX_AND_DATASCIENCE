@@ -443,7 +443,7 @@ insurance |>
 **NB: When to use summarise and reframe**
 
 | Feature | `summarise()` | `reframe()` |
-|------------------------|------------------------|------------------------|
+|----|----|----|
 | Returns per group | Single row | Multiple rows allowed |
 | Multiple values | Warning/Error | Handled naturally |
 | Output grouping | Controlled by `.groups` | Always returns ungrouped df |
@@ -898,7 +898,7 @@ Sometimes all the columns to pivot do not hold the same kind of value or informa
 NB: You can also use name_sep argument instead of name_pattern
 
 | Situation | What to use |
-|------------------------------------|------------------------------------|
+|----|----|
 | All pivoted columns hold the **same kind of value** | `values_to = "some_name"` |
 | Pivoted columns hold **different kinds of values**, distinguished by part of the column name | `.value` in `names_to` |
 
@@ -1087,8 +1087,7 @@ df2 |>
   head()
 ```
 
-**Coalesce():\**
-Coalesce works like this : Give me the non-NA values in this column in the order i have provided them from left to right. Where you don't find a number in the first_column(NA), look into the next column to grab the corresponding value, there is no value or NA, look again in the next column. if you still don't find a value, you provide a final value it should always fall on.
+\*\*Coalesce():\*\* Coalesce works like this : Give me the non-NA values in this column in the order i have provided them from left to right. Where you don't find a number in the first_column(NA), look into the next column to grab the corresponding value, there is no value or NA, look again in the next column. if you still don't find a value, you provide a final value it should always fall on.
 
 ```{r}
 score_table <- tibble(
@@ -1109,8 +1108,7 @@ score_table |>
   head()
 ```
 
-**Complete():\**
-Complete is actually used to fill missing rows not just values: For instance you have test score for students in differenct time points. but one particular student was missing for one time point. Let's show some example
+\*\*Complete():\*\* Complete is actually used to fill missing rows not just values: For instance you have test score for students in differenct time points. but one particular student was missing for one time point. Let's show some example
 
 ```{r}
 df3 <- tibble(
@@ -1169,8 +1167,7 @@ models |>
   unnest(tidy)
 ```
 
-**Unnest_wider():\**
-Unnest wider extracts everything from the nested list
+\*\*Unnest_wider():\*\* Unnest wider extracts everything from the nested list
 
 ```{r}
 #Extracts everything in the params list:
@@ -1179,8 +1176,7 @@ models |>
   unnest_wider(params)
 ```
 
-**Hoist():\**
-Hoist is used when you want to extract some part of the nested list and not everything like unnest and unnest_wider do:
+\*\*Hoist():\*\* Hoist is used when you want to extract some part of the nested list and not everything like unnest and unnest_wider do:
 
 ```{r}
 # let's extract only intercept
