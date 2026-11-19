@@ -2,7 +2,8 @@
 title: "Full_Tidyverse"
 author: "SumbugAnalytics"
 date: "2026-03-01"
-output: html_document
+format: gfm
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
@@ -442,7 +443,7 @@ insurance |>
 **NB: When to use summarise and reframe**
 
 | Feature | `summarise()` | `reframe()` |
-|----|----|----|
+|------------------------|------------------------|------------------------|
 | Returns per group | Single row | Multiple rows allowed |
 | Multiple values | Warning/Error | Handled naturally |
 | Output grouping | Controlled by `.groups` | Always returns ungrouped df |
@@ -534,10 +535,6 @@ inner_joined <- df_names |>
 inner_joined
 ```
 
-```{r}
-
-```
-
 #### **left_join() ;**
 
 Returns all matching rows in the two data frames on the key column and all rows in the left datframe. Same as saying you want all rows in the left data frame and all other matching rows in the right data frame .
@@ -589,8 +586,8 @@ df_names |>
 
 ```{r}
 # let's load some two csv fies from our disk
-employees <- read_csv("D:/R ANALYTICS/Practice Datasets/employees.csv", show_col_types = FALSE)
-departments<- read_csv("D:/R ANALYTICS/Practice Datasets/departments.csv",
+employees <- read_csv("D:/R_ANALYTICS/Practice Datasets/employees.csv", show_col_types = FALSE)
+departments<- read_csv("D:/R_ANALYTICS/Practice Datasets/departments.csv",
                        show_col_types = FALSE)
 cat('Data Succesfully loaded')
 ```
@@ -760,9 +757,9 @@ scores |>
 
 #### Lag and Lead
 
--   **`lag()`** → pulls the **previous** row's value into the current row
--   **`lead()`** → pulls the **next** row's value into the current row
--   You can use default = 0 to modify the default NA value where no value exit after lead or lag
+- **`lag()`** → pulls the **previous** row's value into the current row
+- **`lead()`** → pulls the **next** row's value into the current row
+- You can use default = 0 to modify the default NA value where no value exit after lead or lag
 
 ```{r}
 # let's work on some lead and lag examples
@@ -901,7 +898,7 @@ Sometimes all the columns to pivot do not hold the same kind of value or informa
 NB: You can also use name_sep argument instead of name_pattern
 
 | Situation | What to use |
-|----|----|
+|------------------------------------|------------------------------------|
 | All pivoted columns hold the **same kind of value** | `values_to = "some_name"` |
 | Pivoted columns hold **different kinds of values**, distinguished by part of the column name | `.value` in `names_to` |
 
@@ -999,7 +996,7 @@ Let's use the Framingham data set to get this work done:
 ```{r}
 # loading the data set
 framing <- read_csv(
-  "D:/MACHINE LEARNING/framingham_heart_study.csv",
+  "D:/MACHINE_LEARNING/Framingham_project/framingham_heart_study.csv",
   show_col_types =  FALSE
 )
 cat("Data Loaded Succesfully")
@@ -1090,8 +1087,8 @@ df2 |>
   head()
 ```
 
-**Coalesce():\
-**Coalesce works like this : Give me the non-NA values in this column in the order i have provided them from left to right. Where you don't find a number in the first_column(NA), look into the next column to grab the corresponding value, there is no value or NA, look again in the next column. if you still don't find a value, you provide a final value it should always fall on.
+**Coalesce():\**
+Coalesce works like this : Give me the non-NA values in this column in the order i have provided them from left to right. Where you don't find a number in the first_column(NA), look into the next column to grab the corresponding value, there is no value or NA, look again in the next column. if you still don't find a value, you provide a final value it should always fall on.
 
 ```{r}
 score_table <- tibble(
@@ -1112,8 +1109,8 @@ score_table |>
   head()
 ```
 
-**Complete():\
-**Complete is actually used to fill missing rows not just values: For instance you have test score for students in differenct time points. but one particular student was missing for one time point. Let's show some example
+**Complete():\**
+Complete is actually used to fill missing rows not just values: For instance you have test score for students in differenct time points. but one particular student was missing for one time point. Let's show some example
 
 ```{r}
 df3 <- tibble(
@@ -1172,8 +1169,8 @@ models |>
   unnest(tidy)
 ```
 
-**Unnest_wider():\
-**Unnest wider extracts everything from the nested list
+**Unnest_wider():\**
+Unnest wider extracts everything from the nested list
 
 ```{r}
 #Extracts everything in the params list:
@@ -1182,8 +1179,8 @@ models |>
   unnest_wider(params)
 ```
 
-**Hoist():\
-**Hoist is used when you want to extract some part of the nested list and not everything like unnest and unnest_wider do:
+**Hoist():\**
+Hoist is used when you want to extract some part of the nested list and not everything like unnest and unnest_wider do:
 
 ```{r}
 # let's extract only intercept
