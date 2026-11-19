@@ -1,3 +1,4 @@
+// exclude files ending in:
 .R
 .csv
 .txt
